@@ -4,16 +4,19 @@ PolicyPulse - Simulation Engine
 Rule-based simulation engine for policy impact modeling.
 Reference: PRD.md Feature F3 (Hybrid AI Simulation Engine)
 
-This implementation provides deterministic, reproducible simulations
-using rule-based logic. AI/ML integration will be added later.
+This implementation provides:
+1. Deterministic rule-based simulation (always works)
+2. Optional AI-enhanced mode with automatic fallback
+3. Explainability layer for both modes
 
-Dependencies: data_models, utils
+Dependencies: data_models, utils, llm_client
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from numpy.random import Generator
 
@@ -30,9 +33,16 @@ from src.data_models import (
     SimulationResult,
     StepMetrics,
     ReactionMethod,
+    AIStatus,
 )
 from src.stats import calculate_step_metrics
 from src.utils import clamp, create_rng
+
+if TYPE_CHECKING:
+    from src.llm_client import LLMClient
+
+
+logger = logging.getLogger("policypulse.simulation")
 
 
 # =============================================================================
@@ -172,25 +182,33 @@ def run_simulation(
     scenario_name: str,
     rng: Generator | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
+    llm_client: "LLMClient | None" = None,
 ) -> SimulationResult:
     """
-    Run a complete rule-based simulation.
+    Run a complete simulation with optional AI enhancement.
     
-    Simulates how citizens react to a policy over multiple time steps.
-    Each step builds on the previous, creating a temporal evolution.
+    The simulation ALWAYS completes using rule-based logic as the foundation.
+    AI enhancement is optional and uses a strict fallback chain:
+    LLM → rule-based (never fails)
     
     Args:
         policy: The policy being simulated
         citizens: Generated population (immutable)
         initial_states: Initial citizen states (step 0)
-        config: Simulation configuration
+        config: Simulation configuration (includes ai_enabled flag)
         population_config: Population configuration
         scenario_name: Name for this simulation run
         rng: Random number generator for reproducibility
         progress_callback: Optional callback(step, total) for progress updates
+        llm_client: Optional LLM client for AI-enhanced mode
         
     Returns:
         Complete simulation results with metrics per step
+        
+    Invariants:
+        - Simulation ALWAYS completes
+        - AI failure degrades gracefully to rule-based
+        - All values stay in valid ranges
     """
     if rng is None:
         rng = create_rng(population_config.random_seed)
@@ -208,6 +226,27 @@ def run_simulation(
     # Create citizen lookup for efficient access
     citizen_by_id = {c.id: c for c in citizens}
     
+    # Determine AI availability
+    ai_enabled = config.ai_enabled and llm_client is not None
+    ai_available = ai_enabled and llm_client.is_available if llm_client else False
+    
+    # Track AI usage
+    ai_successes = 0
+    ai_failures = 0
+    last_error: str | None = None
+    
+    # Deterministically select citizens for AI sampling (if enabled)
+    ai_sample_indices: set[int] = set()
+    if ai_enabled:
+        sample_count = max(1, int(len(citizens) * config.ai_sample_pct))
+        sample_count = min(sample_count, len(citizens))
+        # Use deterministic selection based on citizen IDs sorted
+        sorted_ids = sorted(c.id for c in citizens)
+        # Sample evenly across the sorted IDs
+        step_size = max(1, len(sorted_ids) // sample_count)
+        ai_sample_indices = {sorted_ids[i * step_size] for i in range(sample_count)}
+        logger.info(f"AI sampling enabled: {len(ai_sample_indices)} citizens selected")
+    
     # Run simulation steps
     for step in range(1, config.steps + 1):
         if progress_callback:
@@ -216,25 +255,46 @@ def run_simulation(
         # Get previous states
         previous_states = states_by_step[step - 1]
         
-        # Calculate new states
-        new_states = _run_step(
+        # Calculate new states with optional AI enhancement
+        new_states, step_method_counts, step_ai_successes, step_ai_failures, step_error = _run_step_with_ai(
             citizens=citizens,
             citizen_by_id=citizen_by_id,
             previous_states=previous_states,
             policy=policy,
             step=step,
             rng=rng,
+            ai_enabled=ai_enabled,
+            ai_sample_indices=ai_sample_indices,
+            llm_client=llm_client,
+            generate_explanations=config.ai_explanation_enabled,
         )
         
-        # Store states
+        # Store states and metrics
         states_by_step[step] = new_states
-        
-        # Calculate metrics
         step_metrics = calculate_step_metrics(citizens, new_states, step)
         metrics_by_step.append(step_metrics)
+        method_counts[step] = step_method_counts
         
-        # Track method counts (all rule-based for now)
-        method_counts[step] = {ReactionMethod.RULE_BASED: len(citizens)}
+        # Track AI usage
+        ai_successes += step_ai_successes
+        ai_failures += step_ai_failures
+        if step_error:
+            last_error = step_error
+    
+    # Create AI status
+    ai_status = AIStatus(
+        ai_enabled=config.ai_enabled,
+        ai_available=ai_available,
+        citizens_sampled=len(ai_sample_indices) * config.steps if ai_enabled else 0,
+        ai_successes=ai_successes,
+        ai_failures=ai_failures,
+        error_message=last_error,
+    )
+    
+    # Generate AI insight if available and enabled
+    ai_insight: str | None = None
+    if ai_enabled and llm_client and ai_available and ai_successes > 0:
+        ai_insight = _generate_ai_insight(policy, metrics_by_step, llm_client)
     
     return SimulationResult(
         scenario_name=scenario_name,
@@ -245,47 +305,139 @@ def run_simulation(
         states_by_step=states_by_step,
         metrics_by_step=metrics_by_step,
         method_counts=method_counts,
+        ai_status=ai_status,
+        ai_insight=ai_insight,
     )
 
 
-def _run_step(
+def _run_step_with_ai(
     citizens: list[Citizen],
     citizen_by_id: dict[int, Citizen],
     previous_states: list[CitizenState],
     policy: Policy,
     step: int,
     rng: Generator,
-) -> list[CitizenState]:
+    ai_enabled: bool,
+    ai_sample_indices: set[int],
+    llm_client: "LLMClient | None",
+    generate_explanations: bool,
+) -> tuple[list[CitizenState], dict[ReactionMethod, int], int, int, str | None]:
     """
-    Run a single simulation step for all citizens.
+    Run a single simulation step with optional AI enhancement.
     
-    Each citizen's new state is computed from their previous state
-    and the policy's impact on their demographic profile.
+    For citizens in ai_sample_indices:
+    1. Try LLM reaction
+    2. On failure: fall back to rule-based
+    
+    For all other citizens:
+    - Use rule-based reaction
     
     Args:
-        citizens: All citizens (for reference)
-        citizen_by_id: Lookup dict for citizens
+        citizens: All citizens
+        citizen_by_id: Lookup dict
         previous_states: States from previous step
-        policy: The policy being simulated
+        policy: Policy being simulated
         step: Current step number
-        rng: Random number generator
+        rng: Random generator
+        ai_enabled: Whether AI is enabled
+        ai_sample_indices: Citizen IDs selected for AI sampling
+        llm_client: LLM client (may be None)
+        generate_explanations: Whether to generate explanations
         
     Returns:
-        List of new CitizenState objects for this step
+        Tuple of (new_states, method_counts, ai_successes, ai_failures, error_msg)
     """
     new_states: list[CitizenState] = []
+    method_counts: dict[ReactionMethod, int] = {
+        ReactionMethod.RULE_BASED: 0,
+        ReactionMethod.LLM: 0,
+    }
+    ai_successes = 0
+    ai_failures = 0
+    last_error: str | None = None
+    
+    # Import here to avoid circular imports
+    from src.llm_client import (
+        LLMError,
+        generate_rule_based_explanation,
+    )
     
     for prev_state in previous_states:
         citizen = citizen_by_id[prev_state.citizen_id]
         
-        # Calculate deltas using rule-based logic
-        delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
-            citizen=citizen,
-            current_state=prev_state,
-            policy=policy,
-            step=step,
-            rng=rng,
+        # Determine if this citizen should use AI
+        use_ai = (
+            ai_enabled
+            and citizen.id in ai_sample_indices
+            and llm_client is not None
+            and llm_client.is_available
         )
+        
+        # Initialize defaults
+        delta_happiness = 0.0
+        delta_support = 0.0
+        delta_income = 0.0
+        diary_entry: str | None = None
+        reaction_method = ReactionMethod.RULE_BASED
+        
+        if use_ai:
+            # Try AI reaction with fallback
+            try:
+                result = llm_client.generate_citizen_reaction(
+                    citizen=citizen,
+                    current_state=prev_state,
+                    policy=policy,
+                    step=step,
+                )
+                
+                delta_happiness = result.delta_happiness
+                delta_support = result.delta_support
+                delta_income = prev_state.income * result.delta_income_pct
+                diary_entry = result.explanation if generate_explanations else None
+                reaction_method = ReactionMethod.LLM
+                ai_successes += 1
+                
+            except LLMError as e:
+                # Fallback to rule-based on any LLM error
+                logger.warning(f"LLM failed for citizen {citizen.id}, falling back: {e}")
+                ai_failures += 1
+                last_error = str(e)
+                
+                # Use rule-based reaction
+                delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
+                    citizen=citizen,
+                    current_state=prev_state,
+                    policy=policy,
+                    step=step,
+                    rng=rng,
+                )
+                reaction_method = ReactionMethod.RULE_BASED
+                
+                if generate_explanations:
+                    diary_entry = generate_rule_based_explanation(
+                        citizen=citizen,
+                        delta_happiness=delta_happiness,
+                        delta_support=delta_support,
+                        policy_domain=policy.domain.value,
+                    )
+        else:
+            # Standard rule-based reaction
+            delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
+                citizen=citizen,
+                current_state=prev_state,
+                policy=policy,
+                step=step,
+                rng=rng,
+            )
+            
+            if generate_explanations and citizen.id in ai_sample_indices:
+                # Generate template explanation for sampled citizens even in fallback
+                diary_entry = generate_rule_based_explanation(
+                    citizen=citizen,
+                    delta_happiness=delta_happiness,
+                    delta_support=delta_support,
+                    policy_domain=policy.domain.value,
+                )
         
         # Apply deltas to create new state (immutable pattern)
         new_happiness = clamp(prev_state.happiness + delta_happiness, 0.0, 1.0)
@@ -298,12 +450,59 @@ def _run_step(
             happiness=new_happiness,
             policy_support=new_support,
             income=new_income,
-            reaction_method=ReactionMethod.RULE_BASED,
-            diary_entry=None,
+            reaction_method=reaction_method,
+            diary_entry=diary_entry,
         )
         new_states.append(new_state)
+        method_counts[reaction_method] = method_counts.get(reaction_method, 0) + 1
     
-    return new_states
+    return new_states, method_counts, ai_successes, ai_failures, last_error
+
+
+def _generate_ai_insight(
+    policy: Policy,
+    metrics_by_step: list[StepMetrics],
+    llm_client: "LLMClient",
+) -> str | None:
+    """
+    Generate an AI insight for the simulation results.
+    
+    Falls back to rule-based insight on failure.
+    """
+    from src.llm_client import LLMError, generate_rule_based_summary_insight
+    
+    if len(metrics_by_step) < 2:
+        return None
+    
+    initial = metrics_by_step[0]
+    final = metrics_by_step[-1]
+    
+    metrics = {
+        "initial_happiness": initial.avg_happiness,
+        "final_happiness": final.avg_happiness,
+        "happiness_change": final.avg_happiness - initial.avg_happiness,
+        "initial_support": initial.avg_support,
+        "final_support": final.avg_support,
+        "support_change": final.avg_support - initial.avg_support,
+        "initial_income": initial.avg_income,
+        "final_income": final.avg_income,
+        "income_change": final.avg_income - initial.avg_income,
+        "initial_gap": initial.happiness_gap,
+        "final_gap": final.happiness_gap,
+        "gap_change": final.happiness_gap - initial.happiness_gap,
+    }
+    
+    try:
+        result = llm_client.generate_summary_insight(policy, metrics)
+        return result.insight
+    except LLMError as e:
+        logger.warning(f"LLM insight generation failed, using rule-based: {e}")
+        return generate_rule_based_summary_insight(
+            policy_domain=policy.domain.value,
+            happiness_change=metrics["happiness_change"],
+            support_change=metrics["support_change"],
+            gap_change=metrics["gap_change"],
+        )
 
 
 def apply_rule_based_reaction(

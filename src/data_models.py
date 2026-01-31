@@ -156,6 +156,24 @@ class SimulationConfig:
     mode: SimulationMode = SimulationMode.BALANCED
     steps: int = 5
     llm_sample_size: int = 300  # Citizens sampled for LLM in Balanced mode
+    ai_enabled: bool = False  # Whether AI enhancement is enabled
+    ai_sample_pct: float = 0.1  # Percentage of citizens to sample for AI (0.0-1.0)
+    ai_explanation_enabled: bool = True  # Generate AI explanations
+
+
+@dataclass(frozen=True)
+class AIStatus:
+    """
+    Status of AI integration for a simulation run.
+    
+    Provides transparency about what AI was used and any fallbacks.
+    """
+    ai_enabled: bool
+    ai_available: bool  # Whether LLM was actually available
+    citizens_sampled: int  # Number of citizens processed by AI
+    ai_successes: int  # Successful AI reactions
+    ai_failures: int  # Failures that fell back to rules
+    error_message: str | None = None  # Last error if any
 
 
 # =============================================================================
@@ -193,6 +211,8 @@ class SimulationResult:
     states_by_step: dict[int, list[CitizenState]]
     metrics_by_step: list[StepMetrics]
     method_counts: dict[int, dict[ReactionMethod, int]]  # step -> method -> count
+    ai_status: AIStatus | None = None  # AI integration status
+    ai_insight: str | None = None  # AI-generated summary insight (if available)
 
 
 @dataclass

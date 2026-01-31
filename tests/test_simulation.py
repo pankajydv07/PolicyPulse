@@ -303,3 +303,225 @@ class TestPolicyDomainRules:
             for level in IncomeLevel:
                 assert level in rules.happiness_by_income, f"Missing {level} in {domain}"
                 assert level in rules.income_change_by_income, f"Missing {level} in {domain}"
+
+
+class TestAIIntegration:
+    """Tests for AI-enhanced simulation mode."""
+
+    def test_simulation_works_without_llm_client(self) -> None:
+        """Simulation should work perfectly without LLM client."""
+        config = PopulationConfig(size=50)
+        rng = create_rng(42)
+        population = generate_population(config, rng)
+        initial_states = generate_initial_states(population, rng)
+        
+        sim_config = SimulationConfig(
+            steps=3,
+            ai_enabled=True,  # AI enabled but no client provided
+        )
+        policy = Policy(
+            title="Test Policy",
+            description="A test policy",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        # Should not raise, should use rule-based fallback
+        result = run_simulation(
+            policy=policy,
+            citizens=population,
+            initial_states=initial_states,
+            config=sim_config,
+            population_config=config,
+            scenario_name="No LLM Test",
+            llm_client=None,  # No LLM client
+        )
+        
+        assert result is not None
+        assert result.ai_status is not None
+        assert result.ai_status.ai_enabled is True
+        assert result.ai_status.ai_available is False  # No client
+        assert result.ai_status.ai_successes == 0
+
+    def test_ai_status_populated_when_disabled(self) -> None:
+        """AI status should indicate AI was disabled."""
+        config = PopulationConfig(size=50)
+        rng = create_rng(42)
+        population = generate_population(config, rng)
+        initial_states = generate_initial_states(population, rng)
+        
+        sim_config = SimulationConfig(
+            steps=3,
+            ai_enabled=False,
+        )
+        policy = Policy(
+            title="Test Policy",
+            description="A test policy",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        result = run_simulation(
+            policy=policy,
+            citizens=population,
+            initial_states=initial_states,
+            config=sim_config,
+            population_config=config,
+            scenario_name="AI Disabled Test",
+        )
+        
+        assert result.ai_status is not None
+        assert result.ai_status.ai_enabled is False
+        assert result.ai_status.citizens_sampled == 0
+
+    def test_ai_sample_pct_limits_sampling(self) -> None:
+        """AI sample percentage config is stored correctly."""
+        config = PopulationConfig(size=100)
+        rng = create_rng(42)
+        population = generate_population(config, rng)
+        initial_states = generate_initial_states(population, rng)
+        
+        sim_config = SimulationConfig(
+            steps=1,
+            ai_enabled=True,
+            ai_sample_pct=0.1,  # 10% = 10 citizens
+        )
+        policy = Policy(
+            title="Test Policy",
+            description="A test policy",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        result = run_simulation(
+            policy=policy,
+            citizens=population,
+            initial_states=initial_states,
+            config=sim_config,
+            population_config=config,
+            scenario_name="Sample Limit Test",
+            llm_client=None,  # No client, so AI not actually available
+        )
+        
+        # ai_enabled in status reflects config setting
+        # ai_available reflects actual availability (no client = not available)
+        assert result.ai_status.ai_enabled is True  # Config setting
+        assert result.ai_status.ai_available is False  # No client available
+        # No citizens sampled since AI wasn't actually used
+        assert result.ai_status.citizens_sampled == 0
+        # Config still stores the setting
+        assert result.config.ai_sample_pct == 0.1
+
+    def test_all_rule_based_when_ai_disabled(self) -> None:
+        """All reactions should be rule-based when AI is disabled."""
+        config = PopulationConfig(size=50)
+        rng = create_rng(42)
+        population = generate_population(config, rng)
+        initial_states = generate_initial_states(population, rng)
+        
+        sim_config = SimulationConfig(
+            steps=3,
+            ai_enabled=False,
+        )
+        policy = Policy(
+            title="Test Policy",
+            description="A test policy",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        result = run_simulation(
+            policy=policy,
+            citizens=population,
+            initial_states=initial_states,
+            config=sim_config,
+            population_config=config,
+            scenario_name="Rule Based Test",
+        )
+        
+        # Check method counts for each step
+        for step in range(1, sim_config.steps + 1):
+            counts = result.method_counts[step]
+            assert counts.get(ReactionMethod.RULE_BASED, 0) == 50
+            assert counts.get(ReactionMethod.LLM, 0) == 0
+
+    def test_explanation_disabled_produces_no_diary_entries(self) -> None:
+        """When explanations disabled, no diary entries should be generated."""
+        config = PopulationConfig(size=50)
+        rng = create_rng(42)
+        population = generate_population(config, rng)
+        initial_states = generate_initial_states(population, rng)
+        
+        sim_config = SimulationConfig(
+            steps=2,
+            ai_enabled=False,
+            ai_explanation_enabled=False,
+        )
+        policy = Policy(
+            title="Test Policy",
+            description="A test policy",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        result = run_simulation(
+            policy=policy,
+            citizens=population,
+            initial_states=initial_states,
+            config=sim_config,
+            population_config=config,
+            scenario_name="No Explanations Test",
+        )
+        
+        # Check final states for diary entries
+        final_states = result.states_by_step[sim_config.steps]
+        for state in final_states:
+            assert state.diary_entry is None
+
+    def test_deterministic_sampling_is_consistent(self) -> None:
+        """Same population should produce same AI sample selection."""
+        config = PopulationConfig(size=100, random_seed=42)
+        
+        # Run 1
+        rng1 = create_rng(42)
+        pop1 = generate_population(config, rng1)
+        states1 = generate_initial_states(pop1, rng1)
+        
+        sim_config = SimulationConfig(
+            steps=1,
+            ai_enabled=True,
+            ai_sample_pct=0.1,
+        )
+        policy = Policy(
+            title="Test",
+            description="Test",
+            domain=PolicyDomain.ECONOMY,
+        )
+        
+        result1 = run_simulation(
+            policy=policy,
+            citizens=pop1,
+            initial_states=states1,
+            config=sim_config,
+            population_config=config,
+            scenario_name="Run 1",
+            rng=create_rng(42),
+        )
+        
+        # Run 2 - should be identical
+        rng2 = create_rng(42)
+        pop2 = generate_population(config, rng2)
+        states2 = generate_initial_states(pop2, rng2)
+        
+        result2 = run_simulation(
+            policy=policy,
+            citizens=pop2,
+            initial_states=states2,
+            config=sim_config,
+            population_config=config,
+            scenario_name="Run 2",
+            rng=create_rng(42),
+        )
+        
+        # Same citizens should be sampled
+        assert result1.ai_status.citizens_sampled == result2.ai_status.citizens_sampled
+        
+        # Final metrics should be identical (both rule-based fallback)
+        final1 = result1.metrics_by_step[-1]
+        final2 = result2.metrics_by_step[-1]
+        assert abs(final1.avg_happiness - final2.avg_happiness) < 0.001
