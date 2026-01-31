@@ -12,5 +12,9 @@ gatherUsageStats = false
 base = "light"
 primaryColor = "#667EEA"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F8FF"
-textColor = "#262730"
+secondaryBackgroundColor = "#F7F9FC"
+textColor = "#1E293B"
+font = "sans serif"
+
+[runner]
+fastReruns = true

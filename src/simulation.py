@@ -40,6 +40,7 @@ from src.utils import clamp, create_rng
 
 if TYPE_CHECKING:
     from src.llm_client import LLMClient
+    from src.policy_analyzer import PolicyAnalysis
 
 
 logger = logging.getLogger("policypulse.simulation")
@@ -235,6 +236,18 @@ def run_simulation(
     ai_failures = 0
     last_error: str | None = None
     
+    # POLICY UNDERSTANDING: Analyze policy with LLM to get intelligent weights
+    policy_analysis: PolicyAnalysis | None = None
+    if ai_enabled and llm_client:
+        try:
+            from src.policy_analyzer import analyze_policy_with_llm
+            logger.info(f"Analyzing policy: {policy.title}")
+            policy_analysis = analyze_policy_with_llm(policy, llm_client)
+            logger.info(f"Policy analysis complete (confidence: {policy_analysis.confidence:.2f})")
+        except Exception as e:
+            logger.warning(f"Policy analysis failed, using fallback: {e}")
+            policy_analysis = None
+    
     # Deterministically select citizens for AI sampling (if enabled)
     ai_sample_indices: set[int] = set()
     if ai_enabled:
@@ -267,6 +280,7 @@ def run_simulation(
             ai_sample_indices=ai_sample_indices,
             llm_client=llm_client,
             generate_explanations=config.ai_explanation_enabled,
+            policy_analysis=policy_analysis,  # Pass policy understanding
         )
         
         # Store states and metrics
@@ -296,6 +310,38 @@ def run_simulation(
     if ai_enabled and llm_client and ai_available and ai_successes > 0:
         ai_insight = _generate_ai_insight(policy, metrics_by_step, llm_client)
     
+    # Collect reinforcement learning feedback if policy analysis was used
+    if policy_analysis is not None:
+        try:
+            from src.rl_trainer import RLTrainer
+            rl_trainer = RLTrainer()
+            
+            # Create temporary result for feedback (before returning final result)
+            temp_result = SimulationResult(
+                scenario_name=scenario_name,
+                policy=policy,
+                config=config,
+                population_config=population_config,
+                citizens=citizens,
+                states_by_step=states_by_step,
+                metrics_by_step=metrics_by_step,
+                method_counts=method_counts,
+                ai_status=AIStatus(
+                    ai_enabled=config.ai_enabled,
+                    ai_available=ai_available,
+                    citizens_sampled=len(ai_sample_indices) * config.steps if ai_enabled else 0,
+                    ai_successes=ai_successes,
+                    ai_failures=ai_failures,
+                    error_message=last_error,
+                ),
+                ai_insight=ai_insight,
+            )
+            
+            feedback = rl_trainer.collect_feedback(policy_analysis, temp_result)
+            logger.info(f"RL feedback collected: error={feedback.happiness_error + feedback.support_error:.3f}")
+        except Exception as e:
+            logger.warning(f"Failed to collect RL feedback: {e}")
+    
     return SimulationResult(
         scenario_name=scenario_name,
         policy=policy,
@@ -321,16 +367,15 @@ def _run_step_with_ai(
     ai_sample_indices: set[int],
     llm_client: "LLMClient | None",
     generate_explanations: bool,
+    policy_analysis: "PolicyAnalysis | None" = None,
 ) -> tuple[list[CitizenState], dict[ReactionMethod, int], int, int, str | None]:
     """
     Run a single simulation step with optional AI enhancement.
     
-    For citizens in ai_sample_indices:
-    1. Try LLM reaction
-    2. On failure: fall back to rule-based
-    
-    For all other citizens:
-    - Use rule-based reaction
+    Priority order:
+    1. LLM reactions (for sampled citizens if AI enabled)
+    2. Neural Network predictions (for all non-LLM citizens)
+    3. Rule-based fallback (if NN fails)
     
     Args:
         citizens: All citizens
@@ -343,6 +388,7 @@ def _run_step_with_ai(
         ai_sample_indices: Citizen IDs selected for AI sampling
         llm_client: LLM client (may be None)
         generate_explanations: Whether to generate explanations
+        policy_analysis: Optional policy analysis for intelligent weighting
         
     Returns:
         Tuple of (new_states, method_counts, ai_successes, ai_failures, error_msg)
@@ -351,6 +397,7 @@ def _run_step_with_ai(
     method_counts: dict[ReactionMethod, int] = {
         ReactionMethod.RULE_BASED: 0,
         ReactionMethod.LLM: 0,
+        ReactionMethod.NEURAL_NETWORK: 0,
     }
     ai_successes = 0
     ai_failures = 0
@@ -361,6 +408,12 @@ def _run_step_with_ai(
         LLMError,
         generate_rule_based_explanation,
     )
+    from src.nn_model import NeuralNetworkModel
+    from src.config import NN_MODEL_PATH, FEATURE_SCALER_PATH
+    
+    # Initialize NN model (will use heuristics if not trained)
+    nn_model = NeuralNetworkModel()
+    nn_model.load(NN_MODEL_PATH, FEATURE_SCALER_PATH)  # Try to load, falls back if not available
     
     for prev_state in previous_states:
         citizen = citizen_by_id[prev_state.citizen_id]
@@ -376,12 +429,12 @@ def _run_step_with_ai(
         # Initialize defaults
         delta_happiness = 0.0
         delta_support = 0.0
-        delta_income = 0.0
+        delta_income_pct = 0.0
         diary_entry: str | None = None
-        reaction_method = ReactionMethod.RULE_BASED
+        reaction_method = ReactionMethod.NEURAL_NETWORK  # Default to NN
         
         if use_ai:
-            # Try AI reaction with fallback
+            # Try AI reaction with fallback to NN
             try:
                 result = llm_client.generate_citizen_reaction(
                     citizen=citizen,
@@ -392,26 +445,37 @@ def _run_step_with_ai(
                 
                 delta_happiness = result.delta_happiness
                 delta_support = result.delta_support
-                delta_income = prev_state.income * result.delta_income_pct
+                delta_income_pct = result.delta_income_pct
                 diary_entry = result.explanation if generate_explanations else None
                 reaction_method = ReactionMethod.LLM
                 ai_successes += 1
                 
             except LLMError as e:
-                # Fallback to rule-based on any LLM error
-                logger.warning(f"LLM failed for citizen {citizen.id}, falling back: {e}")
+                # Fallback to NN on LLM error
+                logger.warning(f"LLM failed for citizen {citizen.id}, falling back to NN: {e}")
                 ai_failures += 1
                 last_error = str(e)
                 
-                # Use rule-based reaction
-                delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
-                    citizen=citizen,
-                    current_state=prev_state,
-                    policy=policy,
-                    step=step,
-                    rng=rng,
-                )
-                reaction_method = ReactionMethod.RULE_BASED
+                # Use neural network
+                try:
+                    delta_happiness, delta_support, delta_income_pct = nn_model.predict(
+                        citizen=citizen,
+                        current_state=prev_state,
+                        policy=policy,
+                    )
+                    reaction_method = ReactionMethod.NEURAL_NETWORK
+                except Exception as nn_error:
+                    # Ultimate fallback to rules
+                    logger.warning(f"NN also failed, using rules: {nn_error}")
+                    delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
+                        citizen=citizen,
+                        current_state=prev_state,
+                        policy=policy,
+                        step=step,
+                        rng=rng,
+                    )
+                    delta_income_pct = delta_income / prev_state.income if prev_state.income > 0 else 0.0
+                    reaction_method = ReactionMethod.RULE_BASED
                 
                 if generate_explanations:
                     diary_entry = generate_rule_based_explanation(
@@ -421,17 +485,45 @@ def _run_step_with_ai(
                         policy_domain=policy.domain.value,
                     )
         else:
-            # Standard rule-based reaction
-            delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
-                citizen=citizen,
-                current_state=prev_state,
-                policy=policy,
-                step=step,
-                rng=rng,
-            )
+            # Use Neural Network for all non-LLM citizens
+            try:
+                delta_happiness, delta_support, delta_income_pct = nn_model.predict(
+                    citizen=citizen,
+                    current_state=prev_state,
+                    policy=policy,
+                )
+                reaction_method = ReactionMethod.NEURAL_NETWORK
+                
+            except Exception as e:
+                # Fallback to policy-aware or standard rules
+                logger.debug(f"NN prediction failed for citizen {citizen.id}, using rules: {e}")
+                
+                if policy_analysis is not None:
+                    # POLICY-AWARE: Use LLM understanding of policy
+                    from src.policy_analyzer import apply_policy_aware_reaction
+                    delta_happiness, delta_support, delta_income = apply_policy_aware_reaction(
+                        citizen=citizen,
+                        current_state=prev_state,
+                        policy=policy,
+                        policy_analysis=policy_analysis,
+                        step=step,
+                        rng=rng,
+                    )
+                else:
+                    # Standard rule-based reaction
+                    delta_happiness, delta_support, delta_income = apply_rule_based_reaction(
+                        citizen=citizen,
+                        current_state=prev_state,
+                        policy=policy,
+                        step=step,
+                        rng=rng,
+                    )
+                
+                delta_income_pct = delta_income / prev_state.income if prev_state.income > 0 else 0.0
+                reaction_method = ReactionMethod.RULE_BASED
             
             if generate_explanations and citizen.id in ai_sample_indices:
-                # Generate template explanation for sampled citizens even in fallback
+                # Generate template explanation for sampled citizens
                 diary_entry = generate_rule_based_explanation(
                     citizen=citizen,
                     delta_happiness=delta_happiness,
@@ -440,6 +532,7 @@ def _run_step_with_ai(
                 )
         
         # Apply deltas to create new state (immutable pattern)
+        delta_income = prev_state.income * delta_income_pct
         new_happiness = clamp(prev_state.happiness + delta_happiness, 0.0, 1.0)
         new_support = clamp(prev_state.policy_support + delta_support, -1.0, 1.0)
         new_income = max(0.0, prev_state.income + delta_income)

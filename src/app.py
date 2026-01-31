@@ -68,6 +68,112 @@ from src.llm_client import (
     LLMNotConfiguredError,
 )
 
+# =============================================================================
+# Modern UI CSS Injection
+# =============================================================================
+
+def inject_custom_css():
+    """Inject modern custom CSS styling for enhanced UI."""
+    st.markdown("""
+    <style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Gradient Headers */
+    .gradient-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 30px;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
+    
+    .section-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 15px 20px;
+        border-radius: 10px;
+        color: white;
+        margin: 20px 0 15px 0;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Modern Cards */
+    .metric-card {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-left: 5px solid #667eea;
+        margin: 15px 0;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Status Badges */
+    .badge {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        display: inline-block;
+        margin: 5px;
+    }
+    
+    .badge-success { background: #10b981; color: white; }
+    .badge-warning { background: #f59e0b; color: white; }
+    .badge-info { background: #3b82f6; color: white; }
+    .badge-danger { background: #ef4444; color: white; }
+    
+    /* Buttons */
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: white;
+        padding: 10px;
+        border-radius: 12px;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+    }
+    
+    /* Charts */
+    .js-plotly-plot {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Initialize logging (once per session)
 if "logger_initialized" not in st.session_state:
     config = get_config()
@@ -170,7 +276,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="Level", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key="income_distribution_pie", width='stretch')
     
     with col2:
         st.markdown("**City Zone**")
@@ -181,7 +287,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="Zone", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key="zone_distribution_pie", width='stretch')
     
     with col3:
         st.markdown("**Political View**")
@@ -192,7 +298,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="View", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key="political_distribution_pie", width='stretch')
 
 
 def render_citizens_preview(citizens: list, states: list, max_rows: int = 10) -> None:
@@ -266,7 +372,7 @@ def render_simulation_metrics(result: SimulationResult) -> None:
         )
 
 
-def render_time_series_charts(result: SimulationResult) -> None:
+def render_time_series_charts(result: SimulationResult, key_prefix: str = "") -> None:
     """Render time-series charts for simulation metrics."""
     st.subheader("📈 Metrics Over Time")
     
@@ -297,7 +403,7 @@ def render_time_series_charts(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key=f"{key_prefix}happiness_over_time", width='stretch')
     
     with col2:
         # Support over time
@@ -318,7 +424,7 @@ def render_time_series_charts(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key=f"{key_prefix}support_over_time", width='stretch')
 
 
 def render_demographic_breakdown(result: SimulationResult) -> None:
@@ -360,7 +466,7 @@ def render_demographic_breakdown(result: SimulationResult) -> None:
                 margin=dict(t=40, b=40, l=40, r=20),
                 height=300,
             )
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, key="happiness_by_income", width='stretch')
     
     with col2:
         # Support by income level
@@ -391,10 +497,10 @@ def render_demographic_breakdown(result: SimulationResult) -> None:
                 margin=dict(t=40, b=40, l=40, r=20),
                 height=300,
             )
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, key="support_by_income", width='stretch')
 
 
-def render_happiness_gap_evolution(result: SimulationResult) -> None:
+def render_happiness_gap_evolution(result: SimulationResult, key_prefix: str = "") -> None:
     """Render happiness gap evolution chart."""
     st.subheader("📊 Inequality Evolution")
     
@@ -434,7 +540,7 @@ def render_happiness_gap_evolution(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key=f"{key_prefix}happiness_gap_over_time", width='stretch')
     
     with col2:
         # Happiness by income level over time
@@ -458,21 +564,115 @@ def render_happiness_gap_evolution(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, key=f"{key_prefix}happiness_trajectories", width='stretch')
 
 
 def render_ai_status(result: SimulationResult) -> None:
     """Render AI integration status and insights."""
     ai_status = result.ai_status
     
-    if ai_status is None:
-        return
+    st.subheader("🤖 AI & Processing Status")
     
-    st.subheader("🤖 AI Integration Status")
+    if ai_status is None:
+        # No AI status - show rule-based information
+        st.info("🎯 **Rule-Based Simulation Mode**\n\nThis simulation used deterministic rule-based logic to model citizen reactions. This mode is fast, reliable, and doesn't require API keys.")
+        
+        # Show method breakdown from method_counts
+        if result.method_counts:
+            st.markdown("---")
+            st.markdown("**📊 Processing Method Breakdown**")
+            
+            # Aggregate across all steps
+            total_rule = sum(
+                counts.get(ReactionMethod.RULE_BASED, 0)
+                for counts in result.method_counts.values()
+            )
+            total_neural = sum(
+                counts.get(ReactionMethod.NEURAL_NETWORK, 0)
+                for counts in result.method_counts.values()
+            )
+            total_llm = sum(
+                counts.get(ReactionMethod.LLM, 0)
+                for counts in result.method_counts.values()
+            )
+            total = total_rule + total_neural + total_llm
+            
+            if total > 0:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    rule_pct = (total_rule / total) * 100
+                    st.metric("Rule-Based", f"{rule_pct:.1f}%")
+                    st.progress(rule_pct / 100)
+                
+                with col2:
+                    if total_neural > 0:
+                        neural_pct = (total_neural / total) * 100
+                        st.metric("Neural Network", f"{neural_pct:.1f}%")
+                        st.progress(neural_pct / 100)
+                    else:
+                        st.metric("Neural Network", "0%")
+                        st.caption("NN model not used")
+                
+                with col3:
+                    if total_llm > 0:
+                        llm_pct = (total_llm / total) * 100
+                        st.metric("AI/LLM", f"{llm_pct:.1f}%")
+                        st.progress(llm_pct / 100)
+                    else:
+                        st.metric("AI/LLM", "0%")
+                        st.caption("LLM not used")
+                
+                # Additional stats
+                st.markdown("---")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**✅ Simulation Reliability**")
+                    st.success("100% deterministic - all reactions computed locally")
+                    st.caption(f"Total reactions: {total:,}")
+                
+                with col2:
+                    st.markdown("**⚡ Performance**")
+                    st.success("Fast execution - no API latency")
+                    st.caption(f"Population: {len(result.citizens):,} citizens")
+        
+        return
     
     if not ai_status.ai_enabled:
         st.info("AI enhancement was not enabled for this simulation. Results are fully rule-based.")
+        
+        # Show method breakdown even when AI not enabled
+        if result.method_counts:
+            st.markdown("---")
+            st.markdown("**📊 Processing Method Breakdown**")
+            
+            total_rule = sum(
+                counts.get(ReactionMethod.RULE_BASED, 0)
+                for counts in result.method_counts.values()
+            )
+            total_neural = sum(
+                counts.get(ReactionMethod.NEURAL_NETWORK, 0)
+                for counts in result.method_counts.values()
+            )
+            total = total_rule + total_neural
+            
+            if total > 0:
+                col1, col2 = st.columns(2)
+                with col1:
+                    rule_pct = (total_rule / total) * 100
+                    st.metric("Rule-Based", f"{rule_pct:.1f}%")
+                    st.progress(rule_pct / 100)
+                
+                with col2:
+                    if total_neural > 0:
+                        neural_pct = (total_neural / total) * 100
+                        st.metric("Neural Network", f"{neural_pct:.1f}%")
+                        st.progress(neural_pct / 100)
+                    else:
+                        st.metric("Neural Network", "0%")
         return
+    
+    # AI was enabled - show full status
+    st.markdown('<div class="metric-card" style="border-left-color: #667eea;">', unsafe_allow_html=True)
     
     # Status indicators
     col1, col2, col3, col4 = st.columns(4)
@@ -500,6 +700,8 @@ def render_ai_status(result: SimulationResult) -> None:
             delta="lower is better" if fallback_rate < 10 else "some fallbacks",
             delta_color="off",
         )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Show AI insight if available
     if result.ai_insight:
@@ -532,20 +734,40 @@ def render_ai_status(result: SimulationResult) -> None:
             counts.get(ReactionMethod.RULE_BASED, 0)
             for counts in result.method_counts.values()
         )
+        total_neural = sum(
+            counts.get(ReactionMethod.NEURAL_NETWORK, 0)
+            for counts in result.method_counts.values()
+        )
         total_llm = sum(
             counts.get(ReactionMethod.LLM, 0)
             for counts in result.method_counts.values()
         )
-        total = total_rule + total_llm
+        total = total_rule + total_neural + total_llm
         
         if total > 0:
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 rule_pct = (total_rule / total) * 100
-                st.progress(rule_pct / 100, text=f"Rule-Based: {rule_pct:.1f}%")
+                st.metric("Rule-Based", f"{rule_pct:.1f}%")
+                st.progress(rule_pct / 100, text=f"{total_rule:,} reactions")
+            
             with col2:
-                llm_pct = (total_llm / total) * 100
-                st.progress(llm_pct / 100, text=f"AI-Enhanced: {llm_pct:.1f}%")
+                if total_neural > 0:
+                    neural_pct = (total_neural / total) * 100
+                    st.metric("Neural Network", f"{neural_pct:.1f}%")
+                    st.progress(neural_pct / 100, text=f"{total_neural:,} reactions")
+                else:
+                    st.metric("Neural Network", "0%")
+                    st.caption("Not used in this simulation")
+            
+            with col3:
+                if total_llm > 0:
+                    llm_pct = (total_llm / total) * 100
+                    st.metric("AI/LLM", f"{llm_pct:.1f}%")
+                    st.progress(llm_pct / 100, text=f"{total_llm:,} reactions")
+                else:
+                    st.metric("AI/LLM", "0%")
+                    st.caption("Not used in this simulation")
 
 
 def render_sample_explanations(result: SimulationResult, max_samples: int = 5) -> None:
@@ -607,6 +829,9 @@ def main() -> None:
     
     # Load configuration
     config = get_config()
+    
+    # Inject custom CSS for modern UI
+    inject_custom_css()
     
     # =========================================================================
     # Sidebar
@@ -883,150 +1108,100 @@ def main() -> None:
     # Main Content
     # =========================================================================
     
-    # Header
-    st.markdown(
-        """
-        <h1 style="background: linear-gradient(90deg, #667EEA 0%, #764BA2 100%); 
-                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                   font-size: 2.5rem; margin-bottom: 0;">
-            🎯 PolicyPulse
-        </h1>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption("AI-powered synthetic population simulator for stress-testing policies")
+    # Modern Header
+    st.markdown("""
+    <div class="gradient-header">
+        <h1 style="margin: 0; font-size: 3rem;">🎯 PolicyPulse</h1>
+        <p style="margin: 10px 0 0 0; font-size: 1.1rem; opacity: 0.95;">
+            AI-Powered Policy Impact Simulation & Analysis Platform
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Disclaimer
-    st.warning(
-        "⚠️ **Synthetic Simulation Disclaimer**: This tool creates fictional scenarios "
-        "for exploratory purposes. Results do not predict real-world behavior. "
-        "Use as a thought experiment to identify potential blind spots—not as a "
-        "substitute for real data, surveys, or expert analysis."
-    )
-    
-    st.divider()
+    # Disclaimer Banner
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); 
+                padding: 15px 20px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 20px;">
+        <strong>⚠️ Synthetic Simulation Disclaimer:</strong> This tool creates fictional scenarios 
+        for exploratory purposes. Results do not predict real-world behavior. Use as a thought experiment 
+        to identify potential blind spots—not as a substitute for real data, surveys, or expert analysis.
+    </div>
+    """, unsafe_allow_html=True)
     
     # =========================================================================
-    # Content based on state
+    # Tabbed Navigation Interface  
     # =========================================================================
     
-    # Show simulation results if available
-    if st.session_state.simulation_result is not None:
+    # Create tabs based on available data
+    if st.session_state.simulation_result is not None and st.session_state.population is not None:
+        # Full dashboard with all tabs
+        tabs = st.tabs([
+            "📊 Overview",
+            "👥 Demographics",
+            "👤 Citizens",
+            "� Groups",
+            "🎓 Experts",
+            "�📈 Time Series",
+            "📉 Analytics",
+            "🤖 AI Insights",
+            "📂 Scenarios"
+        ])
+        
         result = st.session_state.simulation_result
         
-        # Summary metrics
-        render_simulation_metrics(result)
+        # Tab 1: Overview
+        with tabs[0]:
+            render_overview_tab(result)
         
-        st.divider()
+        # Tab 2: Demographics
+        with tabs[1]:
+            render_demographics_tab(result)
         
-        # AI status and insights (if AI was used)
-        if result.ai_status and result.ai_status.ai_enabled:
-            render_ai_status(result)
-            st.divider()
+        # Tab 3: Citizens
+        with tabs[2]:
+            render_citizens_tab(result)
         
-        # Time series charts
-        render_time_series_charts(result)
+        # Tab 4: Groups
+        with tabs[3]:
+            render_groups_tab(result)
         
-        st.divider()
+        # Tab 5: Experts
+        with tabs[4]:
+            render_experts_tab(result)
         
-        # Demographic breakdown
-        render_demographic_breakdown(result)
+        # Tab 6: Time Series
+        with tabs[5]:
+            render_time_series_tab(result)
         
-        st.divider()
+        # Tab 7: Analytics
+        with tabs[6]:
+            render_analytics_tab(result)
         
-        # Inequality evolution
-        render_happiness_gap_evolution(result)
+        # Tab 8: AI Insights
+        with tabs[7]:
+            render_ai_insights_tab(result)
         
-        st.divider()
-        
-        # Sample explanations (if enabled)
-        if result.config.ai_explanation_enabled:
-            render_sample_explanations(result)
-            st.divider()
-        
-        # Population context
-        with st.expander("📋 Population Details", expanded=False):
-            summary = get_population_summary(result.citizens)
-            render_population_summary(summary)
-            render_distribution_charts(summary)
-            
-            # Final state preview
-            final_states = result.states_by_step[result.config.steps]
-            render_citizens_preview(result.citizens, final_states)
+        # Tab 9: Scenarios
+        with tabs[8]:
+            render_scenarios_comparison_tab()
     
     elif st.session_state.population is not None:
-        # Population generated but no simulation yet
-        population = st.session_state.population
-        initial_states = st.session_state.initial_states
+        # Only population - show 2 tabs
+        tabs = st.tabs(["👥 Population", "💡 Get Started"])
         
-        st.info("👆 Configure a policy in the sidebar and click **Run Simulation** to see results")
+        with tabs[0]:
+            render_population_tab()
         
-        st.divider()
-        
-        # Show population info
-        summary = get_population_summary(population)
-        render_population_summary(summary)
-        
-        st.divider()
-        
-        render_distribution_charts(summary)
-        
-        st.divider()
-        
-        # Initial metrics
-        initial_metrics = calculate_step_metrics(population, initial_states, step=0)
-        st.subheader("📊 Initial State Metrics")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Avg Happiness", format_percentage(initial_metrics.avg_happiness))
-        with col2:
-            st.metric("Avg Support", format_percentage(initial_metrics.avg_support, include_sign=True))
-        with col3:
-            st.metric("Avg Income", format_currency(initial_metrics.avg_income))
-        
-        st.divider()
-        
-        render_citizens_preview(population, initial_states)
-        
+        with tabs[1]:
+            render_getting_started_tab()
+    
     else:
-        # Welcome state
-        st.markdown("### 👋 Welcome to PolicyPulse")
-        st.markdown(
-            """
-            Get started in two steps:
-            
-            1. **Generate a population** in the sidebar (100 - 50,000 citizens)
-            2. **Configure and run a simulation** to see how policies affect different groups
-            
-            After running a simulation, you'll see:
-            - 📊 Summary metrics with changes from initial state
-            - 📈 Time-series charts showing evolution over steps
-            - 👥 Demographic breakdowns by income level
-            - 📉 Inequality gap tracking
-            """
-        )
-        
-        with st.expander("💡 Understanding Policy Domains"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**🏦 Economy**")
-                st.markdown("Tax cuts, interest rates, trade policies. Often favor higher income groups.")
-                
-                st.markdown("**📚 Education**")
-                st.markdown("School funding, training programs. Typically help lower income groups most.")
-            
-            with col2:
-                st.markdown("**🤝 Social**")
-                st.markdown("Healthcare, housing, welfare. Strong impact on vulnerable populations.")
-                
-                st.markdown("**💼 Business**")
-                st.markdown("Deregulation, incentives, subsidies. Usually benefit business owners.")
+        # Welcome screen - no tabs
+        render_getting_started_tab()
     
     # Debug info
     if config.debug:
-        st.divider()
-        with st.expander("🐛 Debug Information"):
+        with st.expander("🐛 Debug Information", expanded=False):
             st.json({
                 "project_root": str(PROJECT_ROOT),
                 "debug_mode": config.debug,
@@ -1037,6 +1212,619 @@ def main() -> None:
             })
     
     logger.debug("Application render complete")
+
+
+# =============================================================================
+# Tab Rendering Functions
+# =============================================================================
+
+def render_overview_tab(result: SimulationResult):
+    """Render Overview tab with key metrics and charts."""
+    st.markdown('<div class="section-header">📊 Simulation Overview</div>', unsafe_allow_html=True)
+    
+    summary = get_simulation_summary(result)
+    
+    # Key Metrics Row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        delta_color = "normal" if summary['happiness_change'] >= 0 else "inverse"
+        st.metric(
+            "😊 Avg Happiness",
+            format_percentage(summary['final_happiness']),
+            delta=format_percentage(summary['happiness_change'], include_sign=True),
+            delta_color=delta_color
+        )
+    
+    with col2:
+        st.metric(
+            "💰 Avg Income",
+            format_currency(summary["final_income"]),
+            delta=format_currency(summary["income_change"])
+        )
+    
+    with col3:
+        support_color = "normal" if summary['support_change'] >= 0 else "inverse"
+        st.metric(
+            "👍 Policy Support",
+            format_percentage(summary["final_support"], include_sign=True),
+            delta=format_percentage(summary['support_change'], include_sign=True),
+            delta_color=support_color
+        )
+    
+    with col4:
+        gap_color = "inverse" if summary["gap_change"] > 0 else "normal"
+        st.metric(
+            "📊 Happiness Gap",
+            format_percentage(summary["final_gap"]),
+            delta=format_percentage(summary['gap_change'], include_sign=True),
+            delta_color=gap_color
+        )
+    
+    st.divider()
+    
+    # Policy Details Card
+    st.markdown(f"""
+    <div class="metric-card">
+        <h3 style="color: #667eea; margin-top: 0;">📋 Policy Details</h3>
+        <p><strong>Title:</strong> {summary['policy_title']}</p>
+        <p><strong>Domain:</strong> <span class="badge badge-info">{summary['policy_domain']}</span></p>
+        <p><strong>Scenario:</strong> {summary['scenario_name']}</p>
+        <p><strong>Steps:</strong> {summary['steps']} | <strong>Population:</strong> {summary['population_size']:,} citizens</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # Quick Charts
+    st.markdown("### 📈 Key Trends")
+    render_time_series_charts(result, key_prefix="overview_")
+
+
+def render_demographics_tab(result: SimulationResult):
+    """Render Demographics tab with population breakdown."""
+    st.markdown('<div class="section-header">👥 Demographic Analysis</div>', unsafe_allow_html=True)
+    
+    render_demographic_breakdown(result)
+    
+    st.divider()
+    
+    st.markdown("### 📊 Inequality Evolution")
+    render_happiness_gap_evolution(result, key_prefix="demographics_")
+    
+    st.divider()
+    
+    # Detailed breakdown
+    with st.expander("📋 Detailed Population Breakdown", expanded=False):
+        summary = get_population_summary(result.citizens)
+        render_population_summary(summary)
+        render_distribution_charts(summary)
+
+
+def render_time_series_tab(result: SimulationResult):
+    """Render Time Series tab with evolution charts."""
+    st.markdown('<div class="section-header">📈 Time Series Analysis</div>', unsafe_allow_html=True)
+    
+    render_time_series_charts(result, key_prefix="timeseries_")
+    
+    st.divider()
+    
+    st.markdown("### 📊 Happiness Trajectories")
+    render_happiness_gap_evolution(result, key_prefix="timeseries_")
+    
+    st.divider()
+    
+    # Additional metrics table
+    st.markdown("### 📋 Step-by-Step Metrics")
+    
+    metrics_data = []
+    for m in result.metrics_by_step:
+        metrics_data.append({
+            "Step": m.step,
+            "Avg Happiness": f"{m.avg_happiness:.1%}",
+            "Avg Support": f"{m.avg_support:+.1%}",
+            "Avg Income": format_currency(m.avg_income),
+            "Happiness Gap": f"{m.happiness_gap:.1%}",
+        })
+    
+    df_metrics = pd.DataFrame(metrics_data)
+    st.dataframe(df_metrics, width='stretch', hide_index=True)
+
+
+def render_citizens_tab(result: SimulationResult):
+    """Render Citizens tab."""
+    st.markdown('<div class="section-header">👤 Citizens Deep Dive</div>', unsafe_allow_html=True)
+    
+    final_step = result.config.steps
+    final_states = result.states_by_step.get(final_step, [])
+    initial_states = result.states_by_step.get(0, [])
+    
+    final_state_map = {s.citizen_id: s for s in final_states}
+    initial_state_map = {s.citizen_id: s for s in initial_states}
+    
+    st.markdown(f"**Total Citizens: {len(result.citizens):,}**")
+    
+    detailed_data = []
+    for c in result.citizens[:100]:
+        if c.id in final_state_map and c.id in initial_state_map:
+            initial = initial_state_map[c.id]
+            final = final_state_map[c.id]
+            detailed_data.append({
+                "ID": c.id,
+                "Age": c.age,
+                "Income Level": c.income_level.value,
+                "Zone": c.city_zone.value,
+                "Political": c.political_view.value,
+                "Final Happiness": final.happiness,
+                "Happiness Δ": final.happiness - initial.happiness,
+                "Support": final.policy_support,
+            })
+    
+    if detailed_data:
+        df_detailed = pd.DataFrame(detailed_data)
+        st.dataframe(
+            df_detailed.style.format({
+                "Final Happiness": "{:.1%}",
+                "Happiness Δ": "{:+.1%}",
+                "Support": "{:+.1%}",
+            }),
+            width='stretch',
+            hide_index=True
+        )
+
+
+def render_groups_tab(result: SimulationResult):
+    """Render Groups tab."""
+    st.markdown('<div class="section-header">👔 Group Analysis</div>', unsafe_allow_html=True)
+    
+    final_metrics = result.metrics_by_step[-1]
+    initial_metrics = result.metrics_by_step[0]
+    
+    # Get final and initial states for additional groupings
+    final_states = result.states_by_step.get(result.config.steps, [])
+    initial_states = result.states_by_step.get(0, [])
+    
+    # Create lookup maps
+    citizen_map = {c.id: c for c in result.citizens}
+    final_state_map = {s.citizen_id: s for s in final_states}
+    initial_state_map = {s.citizen_id: s for s in initial_states}
+    
+    # Calculate happiness by zone and political view
+    happiness_by_zone = {zone: [] for zone in CityZone}
+    happiness_by_political = {view: [] for view in PoliticalView}
+    initial_happiness_by_zone = {zone: [] for zone in CityZone}
+    initial_happiness_by_political = {view: [] for view in PoliticalView}
+    
+    for citizen in result.citizens:
+        if citizen.id in final_state_map and citizen.id in initial_state_map:
+            final_state = final_state_map[citizen.id]
+            initial_state = initial_state_map[citizen.id]
+            
+            happiness_by_zone[citizen.city_zone].append(final_state.happiness)
+            happiness_by_political[citizen.political_view].append(final_state.happiness)
+            initial_happiness_by_zone[citizen.city_zone].append(initial_state.happiness)
+            initial_happiness_by_political[citizen.political_view].append(initial_state.happiness)
+    
+    # Calculate averages
+    avg_happiness_by_zone = {
+        zone: sum(vals) / len(vals) if vals else 0
+        for zone, vals in happiness_by_zone.items()
+    }
+    avg_happiness_by_political = {
+        view: sum(vals) / len(vals) if vals else 0
+        for view, vals in happiness_by_political.items()
+    }
+    initial_avg_happiness_by_zone = {
+        zone: sum(vals) / len(vals) if vals else 0
+        for zone, vals in initial_happiness_by_zone.items()
+    }
+    initial_avg_happiness_by_political = {
+        view: sum(vals) / len(vals) if vals else 0
+        for view, vals in initial_happiness_by_political.items()
+    }
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**💰 Income Groups**")
+        for level in IncomeLevel:
+            final_h = final_metrics.happiness_by_income.get(level, 0)
+            initial_h = initial_metrics.happiness_by_income.get(level, 0)
+            change = final_h - initial_h
+            st.metric(level.value, f"{final_h:.1%}", f"{change:+.1%}")
+    
+    with col2:
+        st.markdown("**🏘️ City Zones**")
+        for zone in CityZone:
+            final_h = avg_happiness_by_zone.get(zone, 0)
+            initial_h = initial_avg_happiness_by_zone.get(zone, 0)
+            change = final_h - initial_h
+            st.metric(zone.value, f"{final_h:.1%}", f"{change:+.1%}")
+    
+    with col3:
+        st.markdown("**🗳️ Political Views**")
+        for view in PoliticalView:
+            final_h = avg_happiness_by_political.get(view, 0)
+            initial_h = initial_avg_happiness_by_political.get(view, 0)
+            change = final_h - initial_h
+            st.metric(view.value, f"{final_h:.1%}", f"{change:+.1%}")
+
+
+def render_experts_tab(result: SimulationResult):
+    """Render Experts tab."""
+    st.markdown('<div class="section-header">🎓 Expert Analysis</div>', unsafe_allow_html=True)
+    
+    summary = get_simulation_summary(result)
+    
+    happiness_score = (summary['happiness_change'] + 0.5) * 50
+    support_score = (summary['final_support'] + 1) * 25
+    composite_score = min(100, max(0, happiness_score + support_score))
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Composite Score", f"{composite_score:.0f}/100")
+        st.progress(composite_score / 100)
+    
+    with col2:
+        grade = "A" if composite_score >= 80 else "B" if composite_score >= 70 else "C" if composite_score >= 60 else "D" if composite_score >= 50 else "F"
+        st.metric("Policy Grade", grade)
+    
+    with col3:
+        effectiveness = "High" if composite_score >= 80 else "Moderate" if composite_score >= 60 else "Limited"
+        st.metric("Effectiveness", effectiveness)
+    
+    st.divider()
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**✅ Strengths**")
+        if summary['happiness_change'] > 0:
+            st.success(f"Happiness increased by {summary['happiness_change']:.1%}")
+        if summary['final_support'] > 0:
+            st.success(f"Positive support: {summary['final_support']:+.1%}")
+    
+    with col2:
+        st.markdown("**⚠️ Concerns**")
+        if summary['happiness_change'] < 0:
+            st.warning(f"Happiness declined by {summary['happiness_change']:.1%}")
+        if summary['gap_change'] > 0.1:
+            st.warning(f"Inequality increased by {summary['gap_change']:.1%}")
+
+
+def render_analytics_tab(result: SimulationResult):
+    """Render Analytics tab."""
+    st.markdown('<div class="section-header">📉 Advanced Analytics</div>', unsafe_allow_html=True)
+    
+    final_states = result.states_by_step.get(result.config.steps, [])
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        happiness_values = [s.happiness * 100 for s in final_states]
+        fig = go.Figure(data=[go.Histogram(
+            x=happiness_values,
+            nbinsx=30,
+            marker_color='#667eea'
+        )])
+        fig.update_layout(title="Happiness Distribution", height=300)
+        st.plotly_chart(fig, key="analytics_happiness", width='stretch')
+    
+    with col2:
+        support_values = [s.policy_support * 100 for s in final_states]
+        fig = go.Figure(data=[go.Histogram(
+            x=support_values,
+            nbinsx=30,
+            marker_color='#764ba2'
+        )])
+        fig.update_layout(title="Support Distribution", height=300)
+        st.plotly_chart(fig, key="analytics_support", width='stretch')
+    
+    st.divider()
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**Happiness Stats**")
+        st.metric("Mean", f"{sum(happiness_values)/len(happiness_values):.1f}%")
+        st.metric("Std Dev", f"{pd.Series(happiness_values).std():.1f}%")
+    
+    with col2:
+        st.markdown("**Support Stats**")
+        st.metric("Mean", f"{sum(support_values)/len(support_values):+.1f}%")
+        positive_pct = sum(1 for s in support_values if s > 0) / len(support_values) * 100
+        st.metric("Positive %", f"{positive_pct:.0f}%")
+    
+    with col3:
+        st.markdown("**Volatility**")
+        vol = pd.Series([m.avg_happiness for m in result.metrics_by_step]).std() * 100
+        st.metric("Happiness Vol", f"{vol:.2f}%")
+
+
+def render_ai_insights_tab(result: SimulationResult):
+    """Render AI Insights tab."""
+    st.markdown('<div class="section-header">🤖 AI Integration & Insights</div>', unsafe_allow_html=True)
+    
+    render_ai_status(result)
+    
+    st.divider()
+    
+    if result.config.ai_explanation_enabled:
+        render_sample_explanations(result, max_samples=10)
+    else:
+        st.info("💡 AI explanations were not enabled for this simulation. Enable them in the sidebar for AI-generated insights.")
+
+
+def render_scenarios_comparison_tab():
+    """Render Scenarios comparison tab."""
+    st.markdown('<div class="section-header">📂 Scenario Comparison</div>', unsafe_allow_html=True)
+    
+    if len(st.session_state.scenarios) == 0:
+        st.info("ℹ️ No saved scenarios yet. Run multiple simulations to compare them here.")
+        return
+    
+    st.markdown(f"""
+    <div class="metric-card" style="border-left-color: #10b981;">
+        <h4 style="margin-top: 0;">✅ Saved Scenarios: {len(st.session_state.scenarios)}</h4>
+        <p>Compare different policy approaches side-by-side</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Scenario selector
+    selected_scenarios = st.multiselect(
+        "Select scenarios to compare (2-5 recommended)",
+        options=list(st.session_state.scenarios.keys()),
+        default=list(st.session_state.scenarios.keys())[:min(3, len(st.session_state.scenarios))]
+    )
+    
+    if len(selected_scenarios) >= 2:
+        # Build comparison data
+        comparison_data = []
+        for name in selected_scenarios:
+            result = st.session_state.scenarios[name]
+            summary = get_simulation_summary(result)
+            comparison_data.append({
+                "Scenario": name,
+                "Policy": summary["policy_title"],
+                "Domain": summary["policy_domain"],
+                "Population": summary["population_size"],
+                "Steps": summary["steps"],
+                "Happiness Δ": summary["happiness_change"],
+                "Income Δ": summary["income_change"],
+                "Support Δ": summary["support_change"],
+                "Gap Δ": summary["gap_change"],
+            })
+        
+        df_comparison = pd.DataFrame(comparison_data)
+        
+        st.markdown("### 📊 Comparison Table")
+        st.dataframe(
+            df_comparison.style.format({
+                "Population": "{:,}",
+                "Happiness Δ": "{:+.1%}",
+                "Income Δ": "${:+,.0f}",
+                "Support Δ": "{:+.1%}",
+                "Gap Δ": "{:+.1%}",
+            }),
+            width='stretch',
+            hide_index=True
+        )
+        
+        st.divider()
+        
+        # Comparison Charts
+        st.markdown("### 📈 Visual Comparison")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig = go.Figure(data=[go.Bar(
+                x=df_comparison["Scenario"],
+                y=df_comparison["Happiness Δ"] * 100,
+                marker=dict(
+                    color=df_comparison["Happiness Δ"],
+                    colorscale='RdYlGn',
+                    showscale=True,
+                    colorbar=dict(title="Change %")
+                ),
+                text=df_comparison["Happiness Δ"].apply(lambda x: f"{x:+.1%}"),
+                textposition='outside'
+            )])
+            fig.update_layout(
+                title="Happiness Change Comparison",
+                xaxis_title="Scenario",
+                yaxis_title="Change (%)",
+                height=400,
+                margin=dict(t=40, b=40, l=40, r=40)
+            )
+            st.plotly_chart(fig, key="scenario_happiness_comparison", width='stretch')
+        with col2:
+            fig = go.Figure(data=[go.Bar(
+                x=df_comparison["Scenario"],
+                y=df_comparison["Support Δ"] * 100,
+                marker=dict(
+                    color=df_comparison["Support Δ"],
+                    colorscale='RdYlGn',
+                    showscale=True,
+                    colorbar=dict(title="Change %")
+                ),
+                text=df_comparison["Support Δ"].apply(lambda x: f"{x:+.1%}"),
+                textposition='outside'
+            )])
+            fig.update_layout(
+                title="Support Change Comparison",
+                xaxis_title="Scenario",
+                yaxis_title="Change (%)",
+                height=400,
+                margin=dict(t=40, b=40, l=40, r=40)
+            )
+            st.plotly_chart(fig, key="scenario_support_comparison", width='stretch')
+        # Income comparison
+        fig = go.Figure(data=[go.Bar(
+            x=df_comparison["Scenario"],
+            y=df_comparison["Income Δ"],
+            marker_color='#667eea',
+            text=df_comparison["Income Δ"].apply(lambda x: f"${x:+,.0f}"),
+            textposition='outside'
+        )])
+        fig.update_layout(
+            title="Income Change Comparison",
+            xaxis_title="Scenario",
+            yaxis_title="Income Change ($)",
+            height=400,
+            margin=dict(t=40, b=40, l=40, r=40)
+        )
+        st.plotly_chart(fig, key="scenario_income_comparison", width='stretch')
+    
+    elif len(selected_scenarios) == 1:
+        st.warning("⚠️ Select at least 2 scenarios to see comparisons")
+
+
+def render_population_tab():
+    """Render Population tab when only population exists."""
+    st.markdown('<div class="section-header">👥 Population Overview</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="metric-card" style="border-left-color: #10b981;">
+        <h4 style="margin-top: 0;">✅ Population Ready</h4>
+        <p>Your synthetic population has been generated. Configure a policy in the sidebar and click 
+        <strong>Run Simulation</strong> to see how it affects different groups!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    population = st.session_state.population
+    initial_states = st.session_state.initial_states
+    
+    summary = get_population_summary(population)
+    render_population_summary(summary)
+    
+    st.divider()
+    
+    render_distribution_charts(summary)
+    
+    st.divider()
+    
+    # Initial State Metrics
+    initial_metrics = calculate_step_metrics(population, initial_states, step=0)
+    st.markdown("### 📊 Initial State Metrics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Avg Happiness", format_percentage(initial_metrics.avg_happiness))
+    with col2:
+        st.metric("Avg Support", format_percentage(initial_metrics.avg_support, include_sign=True))
+    with col3:
+        st.metric("Avg Income", format_currency(initial_metrics.avg_income))
+    with col4:
+        st.metric("Happiness Gap", format_percentage(initial_metrics.happiness_gap))
+    
+    st.divider()
+    
+    render_citizens_preview(population, initial_states, max_rows=20)
+
+
+def render_getting_started_tab():
+    """Render Getting Started / Welcome tab."""
+    st.markdown('<div class="section-header">👋 Welcome to PolicyPulse</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="metric-card" style="border-left-color: #3b82f6;">
+        <h3 style="margin-top: 0;">🚀 Get Started in Two Steps</h3>
+        <ol style="font-size: 1.1rem; line-height: 1.8;">
+            <li><strong>Generate a Population</strong> - Use the sidebar to create 100-50,000 synthetic citizens</li>
+            <li><strong>Run a Simulation</strong> - Configure a policy and see how it affects different groups</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    st.markdown("### 🎯 What You'll Discover")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div class="metric-card">
+            <h4>📊 Comprehensive Metrics</h4>
+            <ul>
+                <li>Happiness & income changes</li>
+                <li>Policy support levels</li>
+                <li>Inequality gap tracking</li>
+                <li>Demographic breakdowns</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="metric-card">
+            <h4>📈 Time Series Analysis</h4>
+            <ul>
+                <li>Evolution over multiple steps</li>
+                <li>Trend visualization</li>
+                <li>Group trajectories</li>
+                <li>Interactive charts</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="metric-card">
+            <h4>👥 Demographic Insights</h4>
+            <ul>
+                <li>Income level comparisons</li>
+                <li>Political view analysis</li>
+                <li>City zone differences</li>
+                <li>Inequality measures</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="metric-card">
+            <h4>🤖 AI Enhancement</h4>
+            <ul>
+                <li>Nuanced citizen reactions</li>
+                <li>Explanatory insights</li>
+                <li>Pattern detection</li>
+                <li>Scenario summaries</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    st.markdown("### 💡 Understanding Policy Domains")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div class="metric-card" style="border-left-color: #8b5cf6;">
+            <h4>🏦 Economy</h4>
+            <p>Tax cuts, interest rates, trade policies. Often favor higher income groups.</p>
+        </div>
+        
+        <div class="metric-card" style="border-left-color: #8b5cf6;">
+            <h4>📚 Education</h4>
+            <p>School funding, training programs. Typically help lower income groups most.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="metric-card" style="border-left-color: #8b5cf6;">
+            <h4>🤝 Social</h4>
+            <p>Healthcare, housing, welfare. Strong impact on vulnerable populations.</p>
+        </div>
+        
+        <div class="metric-card" style="border-left-color: #8b5cf6;">
+            <h4>💼 Business</h4>
+            <p>Deregulation, incentives, subsidies. Usually benefit business owners.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
