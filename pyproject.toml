@@ -21,7 +21,7 @@ strict_optional = true
 module = [
     "streamlit.*",
     "plotly.*",
-    "google.generativeai.*",
+    "openai.*",
     "sklearn.*",
     "joblib.*",
 ]

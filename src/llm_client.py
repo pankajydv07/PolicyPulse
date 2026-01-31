@@ -1,13 +1,13 @@
 """
 PolicyPulse - LLM Client
 
-Google Gemini API wrapper with rate limiting and fallback support.
-Reference: TECH_STACK.md Section 4 (LLM Provider: Google Gemini)
+Nebius OpenAI-compatible API wrapper with rate limiting and fallback support.
+Reference: TECH_STACK.md Section 4 (LLM Provider: Nebius)
 
 This module is ISOLATED from business logic.
 It handles ONLY: API calls, rate limiting, retry, error classification.
 
-Dependencies: google-generativeai
+Dependencies: openai
 """
 
 from __future__ import annotations
@@ -92,10 +92,14 @@ class LLMInsightResult:
 # LLM Client Configuration
 # =============================================================================
 
-# Rate limiting constants (Gemini free tier: 15 RPM)
-MIN_REQUEST_INTERVAL = 4.5  # seconds between requests (with buffer)
+# Rate limiting constants
+MIN_REQUEST_INTERVAL = 1.0  # seconds between requests
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2.0    # exponential backoff base
+
+# Nebius API configuration
+DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 
 # Response validation ranges (conservative)
 DELTA_HAPPINESS_RANGE = (-0.3, 0.3)
@@ -107,7 +111,9 @@ DELTA_INCOME_PCT_RANGE = (-0.1, 0.1)
 # Prompt Templates
 # =============================================================================
 
-CITIZEN_REACTION_PROMPT = """You are simulating how a citizen reacts to a policy. Analyze the citizen's profile and current state, then predict how this policy will affect them.
+CITIZEN_REACTION_SYSTEM_PROMPT = """Simulate citizen policy reactions. Output valid JSON only: {"delta_happiness": number, "delta_support": number, "delta_income_pct": number, "explanation": string}. Be concise."""
+
+CITIZEN_REACTION_USER_PROMPT = """Analyze this citizen's reaction to the policy:
 
 ## Citizen Profile
 - Age: {age} years old
@@ -131,7 +137,6 @@ CITIZEN_REACTION_PROMPT = """You are simulating how a citizen reacts to a policy
 - Domain: {policy_domain}
 - Description: {policy_description}
 
-## Instructions
 Return a JSON object with these fields:
 1. "delta_happiness": Change in happiness (-0.3 to 0.3)
 2. "delta_support": Change in policy support (-0.5 to 0.5)
@@ -147,7 +152,9 @@ Consider:
 Return ONLY the JSON object, no other text."""
 
 
-SUMMARY_INSIGHT_PROMPT = """You are analyzing simulation results for a policy. Provide a brief factual summary.
+SUMMARY_INSIGHT_SYSTEM_PROMPT = """Analyze policy results. Output valid JSON only: {\"insight\": string, \"key_factors\": [strings]}. Be concise."""
+
+SUMMARY_INSIGHT_USER_PROMPT = """Analyze these simulation results:
 
 ## Policy
 - Title: {policy_title}
@@ -178,10 +185,10 @@ Return ONLY the JSON object, no other text."""
 
 class LLMClient:
     """
-    Client for Google Gemini API with rate limiting and key rotation.
+    Client for Nebius OpenAI-compatible API with rate limiting and key rotation.
     
     Safety features:
-    - Rate limiting (respects free tier limits)
+    - Rate limiting
     - Key rotation on quota exhaustion
     - Retry with exponential backoff
     - Error classification for proper fallback
@@ -193,7 +200,8 @@ class LLMClient:
     def __init__(
         self,
         api_keys: list[str],
-        model_name: str = "models/gemini-2.0-flash",
+        model_name: str = DEFAULT_MODEL,
+        base_url: str = DEFAULT_BASE_URL,
         min_request_interval: float = MIN_REQUEST_INTERVAL,
     ) -> None:
         """
@@ -201,7 +209,8 @@ class LLMClient:
         
         Args:
             api_keys: List of API keys for rotation (non-empty strings only)
-            model_name: Gemini model to use
+            model_name: Model to use (default: openai/gpt-oss-120b)
+            base_url: API base URL (default: Nebius endpoint)
             min_request_interval: Minimum seconds between requests
             
         Raises:
@@ -214,56 +223,51 @@ class LLMClient:
             raise LLMNotConfiguredError("No valid API keys provided")
         
         self._model_name = model_name
+        self._base_url = base_url
         self._min_interval = min_request_interval
         self._current_key_index = 0
         self._last_request_time = 0.0
         self._exhausted_keys: set[int] = set()
         
-        # Lazy-load the google-generativeai module
-        self._genai = None
-        self._model = None
+        # Lazy-load the openai module
+        self._openai_module = None
+        self._client = None
         
         logger.info(
             f"LLM client initialized with {len(self._api_keys)} key(s), "
-            f"model={model_name}"
+            f"model={model_name}, base_url={base_url}"
         )
 
     def _ensure_initialized(self) -> None:
-        """Lazy-initialize the Gemini client."""
-        if self._genai is None:
+        """Lazy-initialize the OpenAI client."""
+        if self._openai_module is None:
             try:
-                import google.generativeai as genai
-                self._genai = genai
+                import openai
+                self._openai_module = openai
             except ImportError as e:
                 raise LLMNotConfiguredError(
-                    "google-generativeai package not installed. "
-                    "Install with: pip install google-generativeai"
+                    "openai package not installed. "
+                    "Install with: pip install openai"
                 ) from e
         
-        if self._model is None:
-            self._configure_model()
+        if self._client is None:
+            self._configure_client()
 
-    def _configure_model(self) -> None:
-        """Configure the Gemini model with current API key."""
+    def _configure_client(self) -> None:
+        """Configure the OpenAI client with current API key."""
         if self._current_key_index in self._exhausted_keys:
             if not self._rotate_api_key():
                 raise LLMQuotaExhaustedError("All API keys exhausted")
         
         current_key = self._api_keys[self._current_key_index]
-        self._genai.configure(api_key=current_key)
         
-        # Configure model with strict settings for predictable output
-        self._model = self._genai.GenerativeModel(
-            model_name=self._model_name,
-            generation_config={
-                "temperature": 0.3,  # Lower for more deterministic output
-                "top_p": 0.8,
-                "max_output_tokens": 500,
-            },
+        self._client = self._openai_module.OpenAI(
+            base_url=self._base_url,
+            api_key=current_key,
         )
         
         masked_key = f"{current_key[:8]}...{current_key[-4:]}" if len(current_key) > 12 else "***"
-        logger.debug(f"Configured model with key {masked_key}")
+        logger.debug(f"Configured client with key {masked_key}")
 
     def _enforce_rate_limit(self) -> None:
         """Wait if needed to respect rate limits."""
@@ -288,19 +292,20 @@ class LLMClient:
             next_idx = (self._current_key_index + 1 + i) % len(self._api_keys)
             if next_idx not in self._exhausted_keys:
                 self._current_key_index = next_idx
-                self._model = None  # Force reconfiguration
+                self._client = None  # Force reconfiguration
                 logger.info(f"Rotated to API key index {next_idx}")
                 return True
         
         logger.warning("All API keys exhausted")
         return False
 
-    def _make_request(self, prompt: str) -> str:
+    def _make_request(self, system_prompt: str, user_prompt: str) -> str:
         """
         Make a rate-limited request to the LLM.
         
         Args:
-            prompt: The prompt to send
+            system_prompt: The system prompt
+            user_prompt: The user prompt
             
         Returns:
             The LLM response text
@@ -318,21 +323,39 @@ class LLMClient:
                 self._enforce_rate_limit()
                 self._last_request_time = time.time()
                 
-                response = self._model.generate_content(prompt)
+                response = self._client.chat.completions.create(
+                    model=self._model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.3,  # Lower for more deterministic output
+                    max_tokens=1500,  # Higher limit for reasoning models
+                )
                 
-                if not response.text:
+                # Validate response structure
+                if not response.choices:
+                    logger.error(f"LLM returned no choices. Response: {response}")
+                    raise LLMResponseError("No choices in LLM response")
+                
+                # Nebius API may use reasoning_content instead of content
+                message = response.choices[0].message
+                content = message.content or getattr(message, 'reasoning_content', None)
+                
+                if not content or not content.strip():
+                    logger.error(f"LLM returned empty content. Full response: {response}")
                     raise LLMResponseError("Empty response from LLM")
                 
-                return response.text.strip()
+                return content.strip()
                 
             except Exception as e:
                 error_str = str(e).lower()
                 
                 # Classify the error
-                if "quota" in error_str or "429" in error_str:
+                if "quota" in error_str or "429" in error_str or "rate_limit" in error_str:
                     logger.warning(f"Quota/rate limit hit: {e}")
                     if self._rotate_api_key():
-                        self._configure_model()
+                        self._configure_client()
                         continue
                     raise LLMQuotaExhaustedError(str(e)) from e
                 
@@ -416,8 +439,8 @@ class LLMClient:
             LLMResponseError: If response cannot be parsed
             LLMNetworkError: If network issues prevent API access
         """
-        # Build prompt
-        prompt = CITIZEN_REACTION_PROMPT.format(
+        # Build user prompt
+        user_prompt = CITIZEN_REACTION_USER_PROMPT.format(
             age=citizen.age,
             gender=citizen.gender,
             income_level=citizen.income_level.value,
@@ -437,8 +460,8 @@ class LLMClient:
             policy_description=policy.description,
         )
         
-        # Make request
-        raw_response = self._make_request(prompt)
+        # Make request with system and user prompts
+        raw_response = self._make_request(CITIZEN_REACTION_SYSTEM_PROMPT, user_prompt)
         
         # Parse response
         data = self._parse_json_response(raw_response)
@@ -493,7 +516,7 @@ class LLMClient:
             LLMQuotaExhaustedError: If all API keys are exhausted
             LLMResponseError: If response cannot be parsed
         """
-        prompt = SUMMARY_INSIGHT_PROMPT.format(
+        user_prompt = SUMMARY_INSIGHT_USER_PROMPT.format(
             policy_title=policy.title,
             policy_domain=policy.domain.value,
             initial_happiness=metrics.get("initial_happiness", 0),
@@ -510,7 +533,7 @@ class LLMClient:
             gap_change=metrics.get("gap_change", 0),
         )
         
-        raw_response = self._make_request(prompt)
+        raw_response = self._make_request(SUMMARY_INSIGHT_SYSTEM_PROMPT, user_prompt)
         data = self._parse_json_response(raw_response)
         
         insight = str(data.get("insight", ""))[:300]
@@ -535,7 +558,7 @@ class LLMClient:
     def reset_exhausted_keys(self) -> None:
         """Reset all exhausted keys (for retry after quota reset)."""
         self._exhausted_keys.clear()
-        self._model = None
+        self._client = None
         logger.info("Reset all exhausted API keys")
 
 

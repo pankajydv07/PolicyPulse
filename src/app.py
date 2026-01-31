@@ -170,7 +170,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="Level", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     with col2:
         st.markdown("**City Zone**")
@@ -181,7 +181,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="Zone", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     with col3:
         st.markdown("**Political View**")
@@ -192,7 +192,7 @@ def render_distribution_charts(summary: dict) -> None:
         })
         fig = px.pie(df, values="Count", names="View", hole=0.4)
         fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=250)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 
 def render_citizens_preview(citizens: list, states: list, max_rows: int = 10) -> None:
@@ -218,7 +218,7 @@ def render_citizens_preview(citizens: list, states: list, max_rows: int = 10) ->
     if "income" in df_display.columns:
         df_display["income"] = df_display["income"].apply(lambda x: f"${x:,.0f}")
     
-    st.dataframe(df_display[display_cols], use_container_width=True, hide_index=True)
+    st.dataframe(df_display[display_cols], width='stretch', hide_index=True)
 
 
 # =============================================================================
@@ -297,7 +297,7 @@ def render_time_series_charts(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     with col2:
         # Support over time
@@ -318,7 +318,7 @@ def render_time_series_charts(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 
 def render_demographic_breakdown(result: SimulationResult) -> None:
@@ -360,7 +360,7 @@ def render_demographic_breakdown(result: SimulationResult) -> None:
                 margin=dict(t=40, b=40, l=40, r=20),
                 height=300,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
     
     with col2:
         # Support by income level
@@ -391,7 +391,7 @@ def render_demographic_breakdown(result: SimulationResult) -> None:
                 margin=dict(t=40, b=40, l=40, r=20),
                 height=300,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
 
 def render_happiness_gap_evolution(result: SimulationResult) -> None:
@@ -434,7 +434,7 @@ def render_happiness_gap_evolution(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     with col2:
         # Happiness by income level over time
@@ -458,7 +458,7 @@ def render_happiness_gap_evolution(result: SimulationResult) -> None:
             margin=dict(t=40, b=40, l=40, r=20),
             height=300,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 
 def render_ai_status(result: SimulationResult) -> None:
@@ -664,7 +664,7 @@ def main() -> None:
             "🎲 Generate Population",
             type="primary",
             disabled=generate_disabled,
-            use_container_width=True,
+            width='stretch',
         ):
             with st.spinner(f"Generating {population_size:,} citizens..."):
                 try:
@@ -795,7 +795,7 @@ def main() -> None:
             "▶️ Run Simulation",
             type="primary",
             disabled=sim_disabled,
-            use_container_width=True,
+            width='stretch',
         ):
             if st.session_state.population is None:
                 st.error("Please generate a population first")

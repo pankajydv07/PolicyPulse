@@ -50,8 +50,8 @@ class AppConfig:
     
     All API keys and sensitive configuration should be loaded here.
     """
-    gemini_api_key: str
-    gemini_backup_keys: list[str]
+    nebius_api_key: str
+    nebius_backup_keys: list[str]
     debug: bool
     log_file: Path | None
     default_population_size: int
@@ -63,12 +63,12 @@ class AppConfig:
         """Load configuration from environment variables."""
         load_dotenv()
         
-        primary_key = os.getenv("GEMINI_API_KEY", "")
+        primary_key = os.getenv("NEBIUS_API_KEY", "")
         
-        # Collect backup keys (GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc.)
+        # Collect backup keys (NEBIUS_API_KEY_2, NEBIUS_API_KEY_3, etc.)
         backup_keys: list[str] = []
         for i in range(2, 10):
-            key = os.getenv(f"GEMINI_API_KEY_{i}")
+            key = os.getenv(f"NEBIUS_API_KEY_{i}")
             if key:
                 backup_keys.append(key)
         
@@ -84,8 +84,8 @@ class AppConfig:
         nn_min_samples = int(os.getenv("NN_MIN_TRAINING_SAMPLES", "500"))
         
         return cls(
-            gemini_api_key=primary_key,
-            gemini_backup_keys=backup_keys,
+            nebius_api_key=primary_key,
+            nebius_backup_keys=backup_keys,
             debug=debug,
             log_file=log_file,
             default_population_size=default_pop_size,
@@ -97,15 +97,15 @@ class AppConfig:
     def all_api_keys(self) -> list[str]:
         """Return all available API keys for rotation."""
         keys = []
-        if self.gemini_api_key:
-            keys.append(self.gemini_api_key)
-        keys.extend(self.gemini_backup_keys)
+        if self.nebius_api_key:
+            keys.append(self.nebius_api_key)
+        keys.extend(self.nebius_backup_keys)
         return keys
 
     @property
     def has_api_key(self) -> bool:
         """Check if at least one API key is configured."""
-        return bool(self.gemini_api_key)
+        return bool(self.nebius_api_key)
 
     def mask_key(self, key: str) -> str:
         """Return a masked version of an API key for logging."""
@@ -118,10 +118,11 @@ class AppConfig:
 # LLM Configuration
 # =============================================================================
 
-# Rate limiting for Gemini free tier
+# Nebius API configuration (OpenAI-compatible endpoint)
 # Reference: TECH_STACK.md Section 4
-LLM_MIN_REQUEST_INTERVAL = 4.5  # seconds (60s / 15 requests + buffer)
-LLM_MODEL_NAME = "models/gemini-2.0-flash"
+LLM_MIN_REQUEST_INTERVAL = 1.0  # seconds between requests
+LLM_MODEL_NAME = "openai/gpt-oss-120b"
+LLM_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 
 # =============================================================================
 # Neural Network Configuration
