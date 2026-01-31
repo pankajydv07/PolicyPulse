@@ -1,0 +1,16 @@
+# PolicyPulse Streamlit Configuration
+# Reference: TECH_STACK.md Section 3
+
+[server]
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#667EEA"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F8FF"
+textColor = "#262730"

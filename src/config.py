@@ -1,0 +1,138 @@
+"""
+PolicyPulse - Configuration Management
+
+Environment variable loading and application configuration.
+Reference: TECH_STACK.md Section 11 (Security Considerations)
+
+This module is imported by app.py only.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+# =============================================================================
+# Path Configuration
+# =============================================================================
+
+# Project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+
+# Data directories
+DATA_DIR = PROJECT_ROOT / "data"
+MODELS_DIR = PROJECT_ROOT / "models"
+
+# Ensure directories exist
+DATA_DIR.mkdir(exist_ok=True)
+MODELS_DIR.mkdir(exist_ok=True)
+
+# File paths
+TRAINING_DATA_PATH = DATA_DIR / "llm_training_samples.csv"
+NN_MODEL_PATH = MODELS_DIR / "citizen_reaction_model.joblib"
+FEATURE_SCALER_PATH = MODELS_DIR / "feature_scaler.joblib"
+
+
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+
+@dataclass(frozen=True)
+class AppConfig:
+    """
+    Application configuration loaded from environment variables.
+    
+    All API keys and sensitive configuration should be loaded here.
+    """
+    gemini_api_key: str
+    gemini_backup_keys: list[str]
+    debug: bool
+
+    @classmethod
+    def from_env(cls) -> "AppConfig":
+        """Load configuration from environment variables."""
+        load_dotenv()
+        
+        primary_key = os.getenv("GEMINI_API_KEY", "")
+        
+        # Collect backup keys (GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc.)
+        backup_keys: list[str] = []
+        for i in range(2, 10):
+            key = os.getenv(f"GEMINI_API_KEY_{i}")
+            if key:
+                backup_keys.append(key)
+        
+        debug = os.getenv("DEBUG", "false").lower() == "true"
+        
+        return cls(
+            gemini_api_key=primary_key,
+            gemini_backup_keys=backup_keys,
+            debug=debug,
+        )
+
+    @property
+    def all_api_keys(self) -> list[str]:
+        """Return all available API keys for rotation."""
+        keys = []
+        if self.gemini_api_key:
+            keys.append(self.gemini_api_key)
+        keys.extend(self.gemini_backup_keys)
+        return keys
+
+    @property
+    def has_api_key(self) -> bool:
+        """Check if at least one API key is configured."""
+        return bool(self.gemini_api_key)
+
+    def mask_key(self, key: str) -> str:
+        """Return a masked version of an API key for logging."""
+        if len(key) < 12:
+            return "***"
+        return f"{key[:8]}...{key[-4:]}"
+
+
+# =============================================================================
+# LLM Configuration
+# =============================================================================
+
+# Rate limiting for Gemini free tier
+# Reference: TECH_STACK.md Section 4
+LLM_MIN_REQUEST_INTERVAL = 4.5  # seconds (60s / 15 requests + buffer)
+LLM_MODEL_NAME = "models/gemini-2.0-flash"
+
+# =============================================================================
+# Neural Network Configuration
+# =============================================================================
+
+# Reference: TECH_STACK.md Section 5
+NN_HIDDEN_LAYERS = (64, 32)
+NN_ACTIVATION = "relu"
+NN_MAX_ITER = 500
+NN_EARLY_STOPPING = True
+NN_VALIDATION_FRACTION = 0.1
+NN_MIN_SAMPLES = 500  # Minimum samples before training is allowed
+
+# =============================================================================
+# Population Configuration Limits
+# =============================================================================
+
+# Reference: PRD.md Feature F1
+POPULATION_MIN_SIZE = 100
+POPULATION_MAX_SIZE = 50_000
+SIMULATION_MIN_STEPS = 1
+SIMULATION_MAX_STEPS = 10
+LLM_SAMPLE_SIZE_DEFAULT = 300
+
+
+def get_config() -> AppConfig:
+    """
+    Get the application configuration.
+    
+    This is the main entry point for accessing configuration.
+    Call this once at application startup.
+    """
+    return AppConfig.from_env()
