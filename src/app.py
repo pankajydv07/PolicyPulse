@@ -69,107 +69,542 @@ from src.llm_client import (
 )
 
 # =============================================================================
-# Modern UI CSS Injection
+# Premium Modern UI with 3D Effects & Sophisticated Animations
 # =============================================================================
 
 def inject_custom_css():
-    """Inject modern custom CSS styling for enhanced UI."""
+    """Inject premium custom CSS with sophisticated hover effects, 3D transforms, and GPU-accelerated animations."""
     st.markdown("""
     <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    /* Import Premium Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
     
-    * {
-        font-family: 'Inter', sans-serif;
+    /* Accessibility: Reduced Motion Support */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
     }
     
-    /* Gradient Headers */
+    /* Root Variables for Premium Theme */
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+        --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.16);
+        --shadow-xl: 0 20px 48px rgba(0, 0, 0, 0.24);
+        --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-smooth: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        --blur-glass: blur(12px);
+    }
+    
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Global Enhancements */
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    /* Main Container with Glass Effect */
+    .main .block-container {
+        padding: 2rem 1rem;
+        max-width: 1400px;
+    }
+    
+    /* Premium Gradient Headers with 3D Effects */
     .gradient-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 30px;
-        border-radius: 15px;
+        position: relative;
+        background: var(--primary-gradient);
+        padding: 40px;
+        border-radius: 20px;
         color: white;
         text-align: center;
-        margin-bottom: 30px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        margin-bottom: 40px;
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        transform-style: preserve-3d;
+        perspective: 1000px;
+        will-change: transform;
+        transition: all var(--transition-smooth);
+    }
+    
+    @media (min-width: 768px) {
+        .gradient-header:hover {
+            transform: translateY(-8px) rotateX(2deg);
+            box-shadow: var(--shadow-xl), 0 0 60px rgba(102, 126, 234, 0.4);
+        }
+        
+        .gradient-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity var(--transition-smooth);
+            pointer-events: none;
+        }
+        
+        .gradient-header:hover::before {
+            opacity: 1;
+            animation: shimmer 2s ease-in-out infinite;
+        }
+    }
+    
+    @keyframes shimmer {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        50% { transform: translate(10%, 10%) rotate(5deg); }
     }
     
     .section-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 15px 20px;
-        border-radius: 10px;
+        background: var(--primary-gradient);
+        padding: 20px 30px;
+        border-radius: 16px;
         color: white;
-        margin: 20px 0 15px 0;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin: 30px 0 20px 0;
+        box-shadow: var(--shadow-md);
+        position: relative;
+        overflow: hidden;
+        transform: translateZ(0);
+        will-change: transform;
+        transition: all var(--transition-base);
     }
     
-    /* Modern Cards */
+    @media (min-width: 768px) {
+        .section-header:hover {
+            transform: translateX(8px) scale(1.02);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .section-header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2));
+            transform: translateX(-100%);
+            transition: transform var(--transition-smooth);
+        }
+        
+        .section-header:hover::after {
+            transform: translateX(400%);
+        }
+    }
+    
+    /* Ultra-Premium Metric Cards with 3D Lift */
     .metric-card {
-        background: white;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        border-left: 5px solid #667eea;
-        margin: 15px 0;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    }
-    
-    /* Status Badges */
-    .badge {
-        padding: 6px 16px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 30px;
         border-radius: 20px;
+        box-shadow: var(--shadow-md);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        margin: 20px 0;
+        position: relative;
+        overflow: hidden;
+        transform-style: preserve-3d;
+        perspective: 1000px;
+        will-change: transform, box-shadow;
+        transition: all var(--transition-smooth);
+        backdrop-filter: var(--blur-glass);
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--primary-gradient);
+        opacity: 0;
+        transition: opacity var(--transition-base);
+        z-index: -1;
+    }
+    
+    @media (min-width: 768px) {
+        .metric-card:hover {
+            transform: translateY(-12px) scale(1.03) rotateX(5deg);
+            box-shadow: var(--shadow-xl), 0 0 40px rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .metric-card:hover::before {
+            opacity: 0.03;
+        }
+        
+        .metric-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 4px;
+            background: var(--primary-gradient);
+            transition: width var(--transition-smooth) 0.1s;
+        }
+        
+        .metric-card:hover::after {
+            width: 100%;
+        }
+    }
+    
+    /* Animated Status Badges with Glow */
+    .badge {
+        padding: 8px 18px;
+        border-radius: 25px;
         font-weight: 600;
         font-size: 0.85rem;
         display: inline-block;
         margin: 5px;
+        position: relative;
+        overflow: hidden;
+        transform: translateZ(0);
+        will-change: transform, box-shadow;
+        transition: all var(--transition-base);
+        cursor: default;
     }
     
-    .badge-success { background: #10b981; color: white; }
-    .badge-warning { background: #f59e0b; color: white; }
-    .badge-info { background: #3b82f6; color: white; }
-    .badge-danger { background: #ef4444; color: white; }
+    @media (min-width: 768px) {
+        .badge:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+    }
     
-    /* Buttons */
+    .badge-success { 
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+        color: white; 
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    .badge-warning { 
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
+        color: white; 
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+    
+    .badge-info { 
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+        color: white; 
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .badge-danger { 
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); 
+        color: white; 
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+    
+    @media (min-width: 768px) {
+        .badge-success:hover { box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5); }
+        .badge-warning:hover { box-shadow: 0 8px 24px rgba(245, 158, 11, 0.5); }
+        .badge-info:hover { box-shadow: 0 8px 24px rgba(59, 130, 246, 0.5); }
+        .badge-danger:hover { box-shadow: 0 8px 24px rgba(239, 68, 68, 0.5); }
+    }
+    
+    /* Premium Button Transformations */
     .stButton > button {
-        border-radius: 10px;
+        border-radius: 14px;
         font-weight: 600;
-        transition: all 0.3s ease;
+        padding: 12px 32px;
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        position: relative;
+        overflow: hidden;
+        transform: translateZ(0);
+        will-change: transform, box-shadow;
+        transition: all var(--transition-base);
+        box-shadow: var(--shadow-md);
     }
     
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width var(--transition-smooth), height var(--transition-smooth);
     }
     
-    /* Metrics */
+    @media (min-width: 768px) {
+        .stButton > button:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: var(--shadow-lg), 0 0 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .stButton > button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .stButton > button:active {
+            transform: translateY(-2px) scale(1.02);
+        }
+    }
+    
+    /* Enhanced Metrics with Stagger Animation */
     [data-testid="stMetricValue"] {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #667eea;
+        font-size: 2.4rem;
+        font-weight: 800;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: metricFadeIn 0.6s ease-out;
     }
     
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+    @keyframes metricFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+    
+    /* Premium Tabs with Morphing Effect */
+    .stTabs {
         background: white;
-        padding: 10px;
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: transparent;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
         border-radius: 12px;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all var(--transition-base);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    @media (min-width: 768px) {
+        .stTabs [data-baseweb="tab"]:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: scale(1.05);
+        }
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--primary-gradient) !important;
         color: white !important;
+        box-shadow: var(--shadow-md);
+        transform: scale(1.05);
     }
     
-    /* Charts */
+    /* Premium Charts with Glow Effect */
     .js-plotly-plot {
+        border-radius: 16px;
+        box-shadow: var(--shadow-md);
+        background: white;
+        padding: 10px;
+        transition: all var(--transition-base);
+        transform: translateZ(0);
+        will-change: transform, box-shadow;
+    }
+    
+    @media (min-width: 768px) {
+        .js-plotly-plot:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+    }
+    
+    /* Sidebar Premium Styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* Input Fields Enhancement */
+    .stTextInput input, .stTextArea textarea, .stSelectbox select {
         border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 2px solid #e2e8f0;
+        padding: 12px;
+        transition: all var(--transition-base);
+    }
+    
+    @media (min-width: 768px) {
+        .stTextInput input:hover, .stTextArea textarea:hover, .stSelectbox select:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: scale(1.01);
+        }
+    }
+    
+    .stTextInput input:focus, .stTextArea textarea:focus, .stSelectbox select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        transform: scale(1.01);
+    }
+    
+    /* Expander Premium Style */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 16px;
+        transition: all var(--transition-base);
+    }
+    
+    @media (min-width: 768px) {
+        .streamlit-expanderHeader:hover {
+            background: var(--primary-gradient);
+            color: white;
+            transform: translateX(8px);
+            box-shadow: var(--shadow-md);
+        }
+    }
+    
+    /* Progress Bar Enhancement */
+    .stProgress > div > div {
+        background: var(--primary-gradient);
+        border-radius: 10px;
+        height: 12px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* Loading Spinner */
+    .stSpinner > div {
+        border-top-color: #667eea !important;
+        animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Alert/Info Boxes */
+    .stAlert {
+        border-radius: 14px;
+        border-left: 5px solid;
+        padding: 20px;
+        backdrop-filter: var(--blur-glass);
+        transition: all var(--transition-base);
+    }
+    
+    @media (min-width: 768px) {
+        .stAlert:hover {
+            transform: translateX(8px);
+            box-shadow: var(--shadow-md);
+        }
+    }
+    
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary-gradient);
+        border-radius: 10px;
+        transition: all var(--transition-base);
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Keyboard Focus Indicators for Accessibility */
+    button:focus-visible, 
+    input:focus-visible, 
+    select:focus-visible, 
+    textarea:focus-visible {
+        outline: 3px solid #667eea;
+        outline-offset: 2px;
+    }
+    
+    /* Staggered Animation for Multiple Elements */
+    @media (min-width: 768px) {
+        .metric-card:nth-child(1) { animation-delay: 0s; }
+        .metric-card:nth-child(2) { animation-delay: 0.1s; }
+        .metric-card:nth-child(3) { animation-delay: 0.2s; }
+        .metric-card:nth-child(4) { animation-delay: 0.3s; }
+    }
+    
+    /* Success/Error Messages with Slide-in Animation */
+    .stSuccess, .stError, .stWarning, .stInfo {
+        animation: slideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: var(--shadow-md);
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    /* Mobile Optimization */
+    @media (max-width: 767px) {
+        .gradient-header {
+            padding: 25px 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        [data-testid="stMetricValue"] {
+            font-size: 1.8rem;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -599,19 +1034,49 @@ def render_ai_status(result: SimulationResult) -> None:
             
             if total > 0:
                 col1, col2, col3 = st.columns(3)
+                
                 with col1:
                     rule_pct = (total_rule / total) * 100
-                    st.metric("Rule-Based", f"{rule_pct:.1f}%")
+                    st.markdown(f"""
+                    <div class="metric-card" style="text-align: center;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            ⚙️ Rule-Based
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                            {rule_pct:.1f}%
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.progress(rule_pct / 100)
                 
                 with col2:
                     if total_neural > 0:
                         neural_pct = (total_neural / total) * 100
-                        st.metric("Neural Network", f"{neural_pct:.1f}%")
+                        st.markdown(f"""
+                        <div class="metric-card" style="text-align: center;">
+                            <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                                🧠 Neural Network
+                            </div>
+                            <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                                {neural_pct:.1f}%
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                         st.progress(neural_pct / 100)
                     else:
-                        st.metric("Neural Network", "0%")
-                        st.caption("NN model not used")
+                        st.markdown("""
+                        <div class="metric-card" style="text-align: center; opacity: 0.5;">
+                            <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                                🧠 Neural Network
+                            </div>
+                            <div style="font-size: 2.8rem; font-weight: 800; color: #cbd5e1; margin-bottom: 12px;">
+                                0%
+                            </div>
+                            <div style="color: #cbd5e1; font-size: 0.85rem;">
+                                Not used
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 with col3:
                     if total_llm > 0:
@@ -657,18 +1122,46 @@ def render_ai_status(result: SimulationResult) -> None:
             
             if total > 0:
                 col1, col2 = st.columns(2)
+                
                 with col1:
                     rule_pct = (total_rule / total) * 100
-                    st.metric("Rule-Based", f"{rule_pct:.1f}%")
+                    st.markdown(f"""
+                    <div class="metric-card" style="text-align: center;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            ⚙️ Rule-Based
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                            {rule_pct:.1f}%
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.progress(rule_pct / 100)
                 
                 with col2:
                     if total_neural > 0:
                         neural_pct = (total_neural / total) * 100
-                        st.metric("Neural Network", f"{neural_pct:.1f}%")
+                        st.markdown(f"""
+                        <div class="metric-card" style="text-align: center;">
+                            <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                                🧠 Neural Network
+                            </div>
+                            <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                                {neural_pct:.1f}%
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                         st.progress(neural_pct / 100)
                     else:
-                        st.metric("Neural Network", "0%")
+                        st.markdown("""
+                        <div class="metric-card" style="text-align: center; opacity: 0.5;">
+                            <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                                🧠 Neural Network
+                            </div>
+                            <div style="font-size: 2.8rem; font-weight: 800; color: #cbd5e1; margin-bottom: 12px;">
+                                0%
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
         return
     
     # AI was enabled - show full status
@@ -746,28 +1239,87 @@ def render_ai_status(result: SimulationResult) -> None:
         
         if total > 0:
             col1, col2, col3 = st.columns(3)
+            
             with col1:
                 rule_pct = (total_rule / total) * 100
-                st.metric("Rule-Based", f"{rule_pct:.1f}%")
-                st.progress(rule_pct / 100, text=f"{total_rule:,} reactions")
+                st.markdown(f"""
+                <div class="metric-card" style="text-align: center;">
+                    <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                        ⚙️ Rule-Based
+                    </div>
+                    <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                        {rule_pct:.1f}%
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.95rem; font-weight: 500;">
+                        {total_rule:,} reactions
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.progress(rule_pct / 100)
             
             with col2:
                 if total_neural > 0:
                     neural_pct = (total_neural / total) * 100
-                    st.metric("Neural Network", f"{neural_pct:.1f}%")
-                    st.progress(neural_pct / 100, text=f"{total_neural:,} reactions")
+                    st.markdown(f"""
+                    <div class="metric-card" style="text-align: center;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            🧠 Neural Network
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                            {neural_pct:.1f}%
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.95rem; font-weight: 500;">
+                            {total_neural:,} reactions
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.progress(neural_pct / 100)
                 else:
-                    st.metric("Neural Network", "0%")
-                    st.caption("Not used in this simulation")
+                    st.markdown("""
+                    <div class="metric-card" style="text-align: center; opacity: 0.5;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            🧠 Neural Network
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; color: #cbd5e1; margin-bottom: 12px;">
+                            0%
+                        </div>
+                        <div style="color: #cbd5e1; font-size: 0.85rem;">
+                            Not used
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
             
             with col3:
                 if total_llm > 0:
                     llm_pct = (total_llm / total) * 100
-                    st.metric("AI/LLM", f"{llm_pct:.1f}%")
-                    st.progress(llm_pct / 100, text=f"{total_llm:,} reactions")
+                    st.markdown(f"""
+                    <div class="metric-card" style="text-align: center;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            ✨ AI/LLM
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;">
+                            {llm_pct:.1f}%
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.95rem; font-weight: 500;">
+                            {total_llm:,} reactions
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.progress(llm_pct / 100)
                 else:
-                    st.metric("AI/LLM", "0%")
-                    st.caption("Not used in this simulation")
+                    st.markdown("""
+                    <div class="metric-card" style="text-align: center; opacity: 0.5;">
+                        <div style="color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                            ✨ AI/LLM
+                        </div>
+                        <div style="font-size: 2.8rem; font-weight: 800; color: #cbd5e1; margin-bottom: 12px;">
+                            0%
+                        </div>
+                        <div style="color: #cbd5e1; font-size: 0.85rem;">
+                            Not used
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 
 def render_sample_explanations(result: SimulationResult, max_samples: int = 5) -> None:
@@ -853,27 +1405,42 @@ def main() -> None:
         )
         
         with st.expander("Income Distribution", expanded=False):
-            low_pct = st.slider(
+            low_pct_slider = st.slider(
                 "Low Income %",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.30,
-                step=0.05,
-                format="%.0f%%",
+                min_value=0,
+                max_value=100,
+                value=30,
+                step=5,
+                help="Percentage of population with low income"
             )
-            middle_pct = st.slider(
+            middle_pct_slider = st.slider(
                 "Middle Income %",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.50,
-                step=0.05,
-                format="%.0f%%",
+                min_value=0,
+                max_value=100,
+                value=50,
+                step=5,
+                help="Percentage of population with middle income"
             )
-            high_pct = 1.0 - low_pct - middle_pct
-            st.info(f"High Income: {high_pct:.0%}")
             
-            if high_pct < 0:
-                st.error("Low + Middle cannot exceed 100%")
+            # Calculate high income as remaining percentage
+            high_pct_value = 100 - low_pct_slider - middle_pct_slider
+            
+            # Display high income percentage
+            if high_pct_value >= 0:
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                            color: white; padding: 12px 20px; border-radius: 12px; 
+                            text-align: center; font-weight: 600; margin-top: 10px;">
+                    💰 High Income: {high_pct_value}%
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error("⚠️ Low + Middle cannot exceed 100%")
+            
+            # Convert to 0-1 range for internal use
+            low_pct = low_pct_slider / 100.0
+            middle_pct = middle_pct_slider / 100.0
+            high_pct = max(0.0, high_pct_value / 100.0)
         
         random_seed = st.number_input(
             "Random Seed",
