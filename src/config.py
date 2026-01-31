@@ -26,10 +26,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 # Data directories
 DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
+LOGS_DIR = PROJECT_ROOT / "logs"
 
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 MODELS_DIR.mkdir(exist_ok=True)
+LOGS_DIR.mkdir(exist_ok=True)
 
 # File paths
 TRAINING_DATA_PATH = DATA_DIR / "llm_training_samples.csv"
@@ -51,6 +53,10 @@ class AppConfig:
     gemini_api_key: str
     gemini_backup_keys: list[str]
     debug: bool
+    log_file: Path | None
+    default_population_size: int
+    default_simulation_steps: int
+    nn_min_training_samples: int
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -68,10 +74,23 @@ class AppConfig:
         
         debug = os.getenv("DEBUG", "false").lower() == "true"
         
+        # Optional log file
+        log_file_str = os.getenv("LOG_FILE", "")
+        log_file = Path(log_file_str) if log_file_str else None
+        
+        # Simulation defaults with environment overrides
+        default_pop_size = int(os.getenv("DEFAULT_POPULATION_SIZE", "1000"))
+        default_steps = int(os.getenv("DEFAULT_SIMULATION_STEPS", "5"))
+        nn_min_samples = int(os.getenv("NN_MIN_TRAINING_SAMPLES", "500"))
+        
         return cls(
             gemini_api_key=primary_key,
             gemini_backup_keys=backup_keys,
             debug=debug,
+            log_file=log_file,
+            default_population_size=default_pop_size,
+            default_simulation_steps=default_steps,
+            nn_min_training_samples=nn_min_samples,
         )
 
     @property

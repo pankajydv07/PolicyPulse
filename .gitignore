@@ -38,6 +38,10 @@ models/*.pkl
 # Training data (regenerated during sessions)
 data/llm_training_samples.csv
 
+# Logs
+logs/
+*.log
+
 # IDE
 .idea/
 .vscode/
