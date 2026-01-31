@@ -10,6 +10,14 @@ Run with: streamlit run src/app.py
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Ensure the project root is in the Python path for Streamlit Cloud deployment
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 import streamlit as st
 
 # Page configuration must be first Streamlit command
