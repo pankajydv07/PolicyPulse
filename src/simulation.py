@@ -15,6 +15,7 @@ Dependencies: data_models, utils, llm_client
 from __future__ import annotations
 
 import logging
+import numpy as np
 from dataclasses import dataclass
 from typing import Callable, TYPE_CHECKING
 
@@ -236,17 +237,23 @@ def run_simulation(
     ai_failures = 0
     last_error: str | None = None
     
-    # POLICY UNDERSTANDING: Analyze policy with LLM to get intelligent weights
+    # POLICY UNDERSTANDING: ALWAYS analyze policy with LLM if available
+    # This gives intelligent predictions even when AI sampling is disabled
     policy_analysis: PolicyAnalysis | None = None
-    if ai_enabled and llm_client:
+    if llm_client is not None and llm_client.is_available:
         try:
             from src.policy_analyzer import analyze_policy_with_llm
-            logger.info(f"Analyzing policy: {policy.title}")
+            logger.info(f"🔍 Analyzing policy with LLM: {policy.title}")
             policy_analysis = analyze_policy_with_llm(policy, llm_client)
-            logger.info(f"Policy analysis complete (confidence: {policy_analysis.confidence:.2f})")
+            logger.info(
+                f"✅ Policy analysis complete (confidence: {policy_analysis.confidence:.2f}) - "
+                f"Predictions will use LLM-analyzed features instead of generic rules"
+            )
         except Exception as e:
-            logger.warning(f"Policy analysis failed, using fallback: {e}")
+            logger.warning(f"⚠️ Policy analysis failed, falling back to generic rules: {e}")
             policy_analysis = None
+    else:
+        logger.info("ℹ️ LLM not available - using generic rule-based predictions")
     
     # Deterministically select citizens for AI sampling (if enabled)
     ai_sample_indices: set[int] = set()
@@ -409,11 +416,20 @@ def _run_step_with_ai(
         generate_rule_based_explanation,
     )
     from src.nn_model import NeuralNetworkModel
-    from src.config import NN_MODEL_PATH, FEATURE_SCALER_PATH
+    from src.rl_agent import RLAgent
+    from src.config import NN_MODEL_PATH, FEATURE_SCALER_PATH, RL_MODEL_PATH
     
     # Initialize NN model (will use heuristics if not trained)
     nn_model = NeuralNetworkModel()
     nn_model.load(NN_MODEL_PATH, FEATURE_SCALER_PATH)  # Try to load, falls back if not available
+    
+    # Initialize RL agent for real-time learning
+    rl_agent = RLAgent()
+    try:
+        rl_agent.load(RL_MODEL_PATH)
+        logger.info(f"RL agent loaded with {rl_agent.total_experiences} experiences")
+    except Exception:
+        logger.info("Starting with fresh RL agent")
     
     for prev_state in previous_states:
         citizen = citizen_by_id[prev_state.citizen_id]
@@ -485,18 +501,29 @@ def _run_step_with_ai(
                         policy_domain=policy.domain.value,
                     )
         else:
-            # Use Neural Network for all non-LLM citizens
+            # Use RL Agent first, then Neural Network, then rules
+            state_features = None
+            rl_predicted_deltas = None
+            
             try:
-                delta_happiness, delta_support, delta_income_pct = nn_model.predict(
+                # Build feature vector for RL agent
+                state_features = nn_model.build_feature_vector(
                     citizen=citizen,
                     current_state=prev_state,
                     policy=policy,
                 )
-                reaction_method = ReactionMethod.NEURAL_NETWORK
+                
+                # Get RL prediction
+                delta_happiness, delta_support, delta_income_pct = rl_agent.predict(
+                    state_features=state_features,
+                    use_exploration=True,  # Enable exploration during simulation
+                )
+                rl_predicted_deltas = (delta_happiness, delta_support, delta_income_pct)
+                reaction_method = ReactionMethod.NEURAL_NETWORK  # RL uses NN internally
                 
             except Exception as e:
                 # Fallback to policy-aware or standard rules
-                logger.debug(f"NN prediction failed for citizen {citizen.id}, using rules: {e}")
+                logger.debug(f"RL/NN prediction failed for citizen {citizen.id}, using rules: {e}")
                 
                 if policy_analysis is not None:
                     # POLICY-AWARE: Use LLM understanding of policy
@@ -548,6 +575,49 @@ def _run_step_with_ai(
         )
         new_states.append(new_state)
         method_counts[reaction_method] = method_counts.get(reaction_method, 0) + 1
+        
+        # RL LEARNING: Store experience and learn from actual outcomes
+        if state_features is not None and rl_predicted_deltas is not None:
+            # Calculate actual deltas
+            actual_happiness_change = new_happiness - prev_state.happiness
+            actual_support_change = new_support - prev_state.policy_support
+            actual_income_change_pct = (new_income - prev_state.income) / prev_state.income if prev_state.income > 0 else 0.0
+            
+            actual_deltas = (actual_happiness_change, actual_support_change, actual_income_change_pct)
+            
+            # Build policy features
+            policy_features = np.zeros(4)  # One-hot for policy domain
+            domain_mapping = {
+                PolicyDomain.ECONOMY: 0,
+                PolicyDomain.EDUCATION: 1,
+                PolicyDomain.SOCIAL: 2,
+                PolicyDomain.BUSINESS: 3,
+            }
+            policy_features[domain_mapping[policy.domain]] = 1.0
+            
+            # Store experience and trigger learning
+            reward = rl_agent.store_experience(
+                state_features=state_features,
+                predicted_deltas=rl_predicted_deltas,
+                actual_deltas=actual_deltas,
+                policy_features=policy_features,
+            )
+            
+            # Periodically log RL progress
+            if len(new_states) % 1000 == 0:
+                stats = rl_agent.get_stats()
+                logger.info(
+                    f"RL Progress: {stats['total_experiences']} experiences, "
+                    f"avg_reward={stats['avg_recent_reward']:.4f}, "
+                    f"epsilon={stats['epsilon']:.3f}"
+                )
+    
+    # Save RL agent after step completion
+    try:
+        rl_agent.save(RL_MODEL_PATH)
+        logger.debug(f"RL agent saved: {rl_agent.total_experiences} experiences")
+    except Exception as e:
+        logger.warning(f"Failed to save RL agent: {e}")
     
     return new_states, method_counts, ai_successes, ai_failures, last_error
 

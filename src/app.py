@@ -768,6 +768,65 @@ def render_ai_status(result: SimulationResult) -> None:
                 else:
                     st.metric("AI/LLM", "0%")
                     st.caption("Not used in this simulation")
+    
+    # Display RL Agent Statistics
+    st.markdown("---")
+    st.markdown("**🎓 Reinforcement Learning Status**")
+    
+    try:
+        from src.rl_agent import RLAgent
+        from src.config import RL_MODEL_PATH
+        
+        rl_agent = RLAgent()
+        if rl_agent.load(RL_MODEL_PATH):
+            stats = rl_agent.get_stats()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Experiences", f"{stats['total_experiences']:,}")
+                st.caption("Learning samples collected")
+            
+            with col2:
+                st.metric("Model Updates", f"{stats['total_updates']:,}")
+                st.caption("Training iterations")
+            
+            with col3:
+                if stats['is_trained']:
+                    st.metric("Status", "✅ Trained")
+                    st.caption(f"Avg Error: {stats['avg_recent_error']:.4f}")
+                else:
+                    st.metric("Status", "🔄 Learning")
+                    st.caption("Using heuristics + exploration")
+            
+            # Learning progress
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Buffer Size", f"{stats['buffer_size']:,}")
+                st.caption("Replay buffer capacity")
+            
+            with col2:
+                st.metric("Avg Reward", f"{stats['avg_recent_reward']:.4f}")
+                st.caption("Recent prediction accuracy")
+            
+            with col3:
+                st.metric("Exploration Rate", f"{stats['epsilon']:.3f}")
+                st.caption("ε-greedy exploration")
+            
+            # Learning curve visualization
+            if stats['total_experiences'] > 0:
+                st.markdown("**📈 Learning Progress**")
+                st.info(
+                    f"The RL agent has learned from **{stats['total_experiences']:,} experiences** "
+                    f"with **{stats['total_updates']:,} model updates**. "
+                    f"Average recent reward: **{stats['avg_recent_reward']:.4f}** "
+                    f"(higher is better). "
+                    f"The agent explores random predictions {stats['epsilon']:.1%} of the time to discover better strategies."
+                )
+        else:
+            st.info("🆕 Fresh RL agent - will start learning from this simulation")
+    
+    except Exception as e:
+        st.warning(f"RL stats unavailable: {e}")
 
 
 def render_sample_explanations(result: SimulationResult, max_samples: int = 5) -> None:
@@ -1451,11 +1510,14 @@ def render_groups_tab(result: SimulationResult):
 
 
 def render_experts_tab(result: SimulationResult):
-    """Render Experts tab."""
+    """Render Experts tab with detailed strengths and concerns."""
     st.markdown('<div class="section-header">🎓 Expert Analysis</div>', unsafe_allow_html=True)
     
     summary = get_simulation_summary(result)
+    final_metrics = result.metrics_by_step[-1]
+    initial_metrics = result.metrics_by_step[0]
     
+    # Calculate composite score
     happiness_score = (summary['happiness_change'] + 0.5) * 50
     support_score = (summary['final_support'] + 1) * 25
     composite_score = min(100, max(0, happiness_score + support_score))
@@ -1476,21 +1538,99 @@ def render_experts_tab(result: SimulationResult):
     
     st.divider()
     
+    # Generate detailed strengths and concerns
+    strengths = []
+    concerns = []
+    
+    # Analyze happiness change
+    if summary['happiness_change'] > 0.05:
+        strengths.append(f"📈 **Significant happiness improvement**: Overall wellbeing increased by {summary['happiness_change']:.1%}")
+    elif summary['happiness_change'] > 0:
+        strengths.append(f"✅ **Positive happiness trend**: Modest wellbeing increase of {summary['happiness_change']:.1%}")
+    elif summary['happiness_change'] < -0.05:
+        concerns.append(f"📉 **Major happiness decline**: Overall wellbeing decreased by {abs(summary['happiness_change']):.1%}")
+    elif summary['happiness_change'] < 0:
+        concerns.append(f"⚠️ **Slight happiness reduction**: Wellbeing declined by {abs(summary['happiness_change']):.1%}")
+    
+    # Analyze support
+    if summary['final_support'] > 0.15:
+        strengths.append(f"👍 **Strong public support**: {summary['final_support']:+.1%} net approval rating")
+    elif summary['final_support'] > 0:
+        strengths.append(f"✓ **Positive reception**: {summary['final_support']:+.1%} net support among citizens")
+    elif summary['final_support'] < -0.15:
+        concerns.append(f"👎 **Low public support**: {summary['final_support']:+.1%} net disapproval rating")
+    elif summary['final_support'] < 0:
+        concerns.append(f"⚠️ **Mixed reception**: {summary['final_support']:+.1%} net opposition")
+    
+    # Analyze inequality
+    if summary['gap_change'] < -0.05:
+        strengths.append(f"⚖️ **Reduced inequality**: Happiness gap narrowed by {abs(summary['gap_change']):.1%}")
+    elif summary['gap_change'] > 0.05:
+        concerns.append(f"⚖️ **Increased inequality**: Happiness gap widened by {summary['gap_change']:.1%}")
+    elif summary['gap_change'] > 0.01:
+        concerns.append(f"⚠️ **Slight inequality increase**: Gap grew by {summary['gap_change']:.1%}")
+    
+    # Analyze income changes
+    if summary['income_change'] > 5000:
+        strengths.append(f"💰 **Economic boost**: Average income increased by {format_currency(summary['income_change'])}")
+    elif summary['income_change'] > 1000:
+        strengths.append(f"💵 **Income growth**: Modest economic gain of {format_currency(summary['income_change'])}")
+    elif summary['income_change'] < -5000:
+        concerns.append(f"💸 **Economic decline**: Average income decreased by {format_currency(abs(summary['income_change']))}")
+    elif summary['income_change'] < -1000:
+        concerns.append(f"⚠️ **Income reduction**: Loss of {format_currency(abs(summary['income_change']))} per capita")
+    
+    # Analyze demographic impacts
+    low_h = final_metrics.happiness_by_income.get(IncomeLevel.LOW, 0)
+    high_h = final_metrics.happiness_by_income.get(IncomeLevel.HIGH, 0)
+    low_change = low_h - initial_metrics.happiness_by_income.get(IncomeLevel.LOW, 0)
+    high_change = high_h - initial_metrics.happiness_by_income.get(IncomeLevel.HIGH, 0)
+    
+    if low_change > 0.05:
+        strengths.append(f"🎯 **Benefits low-income groups**: {low_change:+.1%} happiness increase for vulnerable populations")
+    elif low_change < -0.05:
+        concerns.append(f"🎯 **Harms low-income groups**: {low_change:+.1%} happiness decline for vulnerable populations")
+    
+    if high_change < -0.05 and low_change > 0:
+        strengths.append(f"⚖️ **Progressive redistribution**: Shifts benefits toward lower-income citizens")
+    elif high_change > 0.05 and low_change < 0:
+        concerns.append(f"⚖️ **Regressive effects**: Disproportionately benefits higher-income groups")
+    
+    # Analyze support change
+    if summary['support_change'] > 0.1:
+        strengths.append(f"📊 **Growing momentum**: Support increased by {summary['support_change']:+.1%} over time")
+    elif summary['support_change'] < -0.1:
+        concerns.append(f"📊 **Declining support**: Approval dropped by {abs(summary['support_change']):.1%} during implementation")
+    
+    # Ensure we have at least 3 points for each
+    if len(strengths) < 3:
+        if summary['happiness_change'] > -0.02:
+            strengths.append("📊 **Stability maintained**: No major negative disruptions to citizen wellbeing")
+        if summary['final_support'] > -0.1:
+            strengths.append("✓ **Acceptable reception**: Policy avoided widespread public backlash")
+        if summary['gap_change'] > -0.02 and summary['gap_change'] < 0.02:
+            strengths.append("⚖️ **Neutral inequality impact**: No significant change in income-based disparities")
+    
+    if len(concerns) < 3:
+        if summary['happiness_change'] < 0.02:
+            concerns.append("⚠️ **Limited happiness gains**: Policy did not significantly improve overall wellbeing")
+        if summary['final_support'] < 0.1:
+            concerns.append("⚠️ **Weak mandate**: Policy lacks strong popular endorsement")
+        if abs(summary['income_change']) < 1000:
+            concerns.append("💼 **Minimal economic impact**: No substantial financial changes for citizens")
+    
+    # Display strengths and concerns
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("**✅ Strengths**")
-        if summary['happiness_change'] > 0:
-            st.success(f"Happiness increased by {summary['happiness_change']:.1%}")
-        if summary['final_support'] > 0:
-            st.success(f"Positive support: {summary['final_support']:+.1%}")
+        st.markdown("**✅ Key Strengths**")
+        for i, strength in enumerate(strengths[:4], 1):
+            st.markdown(f"{i}. {strength}")
     
     with col2:
-        st.markdown("**⚠️ Concerns**")
-        if summary['happiness_change'] < 0:
-            st.warning(f"Happiness declined by {summary['happiness_change']:.1%}")
-        if summary['gap_change'] > 0.1:
-            st.warning(f"Inequality increased by {summary['gap_change']:.1%}")
+        st.markdown("**⚠️ Areas of Concern**")
+        for i, concern in enumerate(concerns[:4], 1):
+            st.markdown(f"{i}. {concern}")
 
 
 def render_analytics_tab(result: SimulationResult):

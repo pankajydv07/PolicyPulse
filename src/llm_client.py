@@ -550,6 +550,92 @@ class LLMClient:
             raw_response=raw_response,
         )
 
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+    ) -> str:
+        """
+        Generic method to generate LLM responses for any prompt.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            max_tokens: Maximum tokens in response
+            temperature: Temperature for generation (0.0-1.0)
+            
+        Returns:
+            The LLM response text
+            
+        Raises:
+            LLMQuotaExhaustedError: All keys exhausted
+            LLMNetworkError: Network issues
+            LLMResponseError: Invalid response
+        """
+        self._ensure_initialized()
+        
+        for attempt in range(MAX_RETRIES):
+            try:
+                self._enforce_rate_limit()
+                self._last_request_time = time.time()
+                
+                response = self._client.chat.completions.create(
+                    model=self._model_name,
+                    messages=[
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                
+                # Validate response structure
+                if not response.choices:
+                    logger.error(f"LLM returned no choices. Response: {response}")
+                    raise LLMResponseError("No choices in LLM response")
+                
+                # Nebius API may use reasoning_content instead of content
+                message = response.choices[0].message
+                content = message.content or getattr(message, 'reasoning_content', None)
+                
+                if not content or not content.strip():
+                    logger.error(f"LLM returned empty content. Full response: {response}")
+                    raise LLMResponseError("Empty response from LLM")
+                
+                return content.strip()
+                
+            except Exception as e:
+                error_str = str(e).lower()
+                
+                # Classify the error
+                if "quota" in error_str or "429" in error_str or "rate_limit" in error_str:
+                    logger.warning(f"Quota/rate limit hit: {e}")
+                    if self._rotate_api_key():
+                        self._configure_client()
+                        continue
+                    raise LLMQuotaExhaustedError(str(e)) from e
+                
+                elif "rate" in error_str:
+                    # Temporary rate limit - backoff and retry
+                    wait = RETRY_BACKOFF_BASE ** attempt
+                    logger.warning(f"Rate limit, retry in {wait}s: {e}")
+                    time.sleep(wait)
+                    continue
+                
+                elif any(x in error_str for x in ["network", "connection", "timeout"]):
+                    raise LLMNetworkError(str(e)) from e
+                
+                elif attempt < MAX_RETRIES - 1:
+                    # Unknown error, retry with backoff
+                    wait = RETRY_BACKOFF_BASE ** attempt
+                    logger.warning(f"LLM error, retry in {wait}s: {e}")
+                    time.sleep(wait)
+                    continue
+                
+                else:
+                    raise LLMResponseError(str(e)) from e
+        
+        raise LLMResponseError("Max retries exceeded")
+
     @property
     def is_available(self) -> bool:
         """Check if the LLM client is available (has non-exhausted keys)."""

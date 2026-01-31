@@ -37,6 +37,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 TRAINING_DATA_PATH = DATA_DIR / "llm_training_samples.csv"
 NN_MODEL_PATH = MODELS_DIR / "citizen_reaction_mlp.joblib"
 FEATURE_SCALER_PATH = MODELS_DIR / "feature_scaler.joblib"
+RL_MODEL_PATH = MODELS_DIR / "rl_agent.pkl"
 
 
 # =============================================================================
