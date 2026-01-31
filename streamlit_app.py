@@ -2,7 +2,7 @@
 PolicyPulse - Streamlit Cloud Entry Point
 
 This file serves as the entry point for Streamlit Cloud deployment.
-It sets up the Python path and then imports the main application.
+It sets up the Python path and then runs the main application.
 """
 
 import sys
@@ -14,4 +14,10 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # Import and run the main application
-from src.app import *
+from src.app import main
+
+if __name__ == "__main__":
+    main()
+
+# Also call main() directly for Streamlit Cloud
+main()
